@@ -191,8 +191,8 @@ quantize numBuckets EventAnalysis{..} = Quantized {
     go !acc [] = acc
     go !acc ((eid, start, end) : ttimes') =
       let startBucket, endBucket :: Int
-          startBucket = fromIntegral $ start `div` bucketSize
-          endBucket   = fromIntegral $ end   `div` bucketSize
+          startBucket = bucket start
+          endBucket   = bucket end
 
           updates :: Map Int Double
           updates = Map.fromAscList
@@ -232,12 +232,11 @@ quantize numBuckets EventAnalysis{..} = Quantized {
     endTime    = maximum $ map (\(_eid, _start, stop) -> stop)  _events
     bucketSize = (endTime - startTime) `div` fromIntegral numBuckets
 
+    bucket :: Timestamp -> Int
+    bucket t = fromIntegral ((t - startTime) `div` bucketSize)
+
     t2d :: Timestamp -> Double
     t2d = fromInteger . toInteger
 
     quantizeThreadInfo :: (Timestamp, Timestamp, String) -> (Int, Int, String)
-    quantizeThreadInfo (start, stop, label) =
-      ( fromIntegral $ start `div` bucketSize
-      , fromIntegral $ stop  `div` bucketSize
-      , label
-      )
+    quantizeThreadInfo (start, stop, label) = (bucket start, bucket stop, label)

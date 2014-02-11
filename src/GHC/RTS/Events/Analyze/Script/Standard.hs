@@ -1,7 +1,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 module GHC.RTS.Events.Analyze.Script.Standard (
     defaultScriptTotals
-  , defaultScriptSVG
+  , defaultScriptTimed
   ) where
 
 import GHC.RTS.Events.Analyze.Script
@@ -19,8 +19,8 @@ defaultScriptTotals = [scriptQQ|
     sum thread
   |]
 
-defaultScriptSVG :: Script
-defaultScriptSVG = [scriptQQ|
+defaultScriptTimed :: Script
+defaultScriptTimed = [scriptQQ|
     GC
 
     section "USER EVENTS"

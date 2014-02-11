@@ -41,15 +41,16 @@ data EventId =
 
 -- | Command line options
 data Options = Options {
-    optionsGenerateSVG    :: Bool
-  , optionsGenerateTotals :: Bool
-  , optionsNumBuckets     :: Int
-  , optionsUserStart      :: String
-  , optionsUserStop       :: String
-  , optionsScriptTotals   :: FilePath  -- "" denotes the standard script
-  , optionsScriptSVG      :: FilePath
+    optionsGenerateTimedSVG   :: Bool
+  , optionsGenerateTimedText  :: Bool
+  , optionsGenerateTotalsText :: Bool
+  , optionsNumBuckets         :: Int
+  , optionsUserStart          :: String
+  , optionsUserStop           :: String
+  , optionsScriptTotals       :: FilePath  -- "" denotes the standard script
+  , optionsScriptTimed        :: FilePath
     -- Defined last to make defining the parser easier
-  , optionsInput      :: FilePath
+  , optionsInput              :: FilePath
   }
   deriving Show
 
@@ -90,7 +91,8 @@ data EventAnalysis = EventAnalysis {
 
     -- | Total amount of time per event
   , eventTotals :: Map EventId Timestamp
-  } deriving Show
+  }
+  deriving Show
 
 $(makeLenses ''EventAnalysis)
 
@@ -115,6 +117,7 @@ data Quantized = Quantized {
     -- | Like threadInfo, but quantized (start and finish bucket)
   , quantThreadInfo :: Map ThreadId (Int, Int, String)
   }
+  deriving Show
 
 -- | Show an event ID given the specified options (for renaming events)
 -- and information about threads (either `__threadInfo` from `EventAnalysis` or

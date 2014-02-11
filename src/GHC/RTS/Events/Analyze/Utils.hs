@@ -1,9 +1,11 @@
 module GHC.RTS.Events.Analyze.Utils (
     throwLeft
   , throwLeftStr
+  , applyAll
   , insertWith
   , prefix
   , explode
+  , overwrite
   ) where
 
 import Control.Exception
@@ -14,6 +16,9 @@ throwLeft act = act >>= \ea -> case ea of Left  e -> throwIO e
 
 throwLeftStr :: IO (Either String a) -> IO a
 throwLeftStr = throwLeft . fmap (either (Left . userError) Right)
+
+applyAll :: [a -> a] -> a -> a
+applyAll = foldr (.) id
 
 -- | Like `Map.insertWith`, but for associative lists
 --
@@ -46,3 +51,17 @@ prefix []     ys                 = Just ys
 prefix _      []                 = Nothing
 prefix (x:xs) (y:ys) | x == y    = prefix xs ys
                      | otherwise = Nothing
+
+-- | Overwrite part of a list with another
+--
+-- > overwrite 0 "abc" ""       == "abc"
+-- > overwrite 0 "abc" "defghi" == "abcghi"
+-- > overwrite 2 "abc" "defghi" == "deabci"
+-- > overwrite 2 "abc" "def"    == "deabc"
+-- > overwrite 4 "abc" "def"    == "def abc"
+overwrite :: Int -> String -> String -> String
+overwrite _ []     ys     = ys
+overwrite 0 xs     []     = xs
+overwrite 0 (x:xs) (_:ys) = x : overwrite 0 xs ys
+overwrite n xs     []     = ' ' : overwrite (n - 1) xs []
+overwrite n xs     (y:ys) = y   : overwrite (n - 1) xs ys

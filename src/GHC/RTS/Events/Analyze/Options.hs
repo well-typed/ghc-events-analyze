@@ -18,11 +18,14 @@ parseOptions = customExecParser (prefs showHelpOnError) opts
 
 parserOptions :: Parser Options
 parserOptions = selectDefaultOutput <$> (Options
-    <$> switch     ( long "svg"
-                  <> help "Generate SVG file"
+    <$> switch     ( long "timed"
+                  <> help "Generate timed report (in SVG format)"
+                   )
+    <*> switch     ( long "timed-txt"
+                  <> help "Generate timed report (in textual format)"
                    )
     <*> switch     ( long "totals"
-                  <> help "Generate totals"
+                  <> help "Generate totals report"
                    )
     <*> option     ( long "buckets"
                   <> short 'b'
@@ -48,9 +51,9 @@ parserOptions = selectDefaultOutput <$> (Options
                   <> help "Use the script in PATH for the totals report"
                   <> value ""
                    )
-    <*> strOption  ( long "script-svg"
+    <*> strOption  ( long "script-timed"
                   <> metavar "PATH"
-                  <> help "Use the script in PATH for the SVG report"
+                  <> help "Use the script in PATH for the timed reports"
                   <> value ""
                    )
     <*> argument str (metavar "EVENTLOG")
@@ -60,10 +63,11 @@ parserOptions = selectDefaultOutput <$> (Options
 selectDefaultOutput :: Options -> Options
 selectDefaultOutput options@Options{..} =
     if noOutputSelected
-      then options { optionsGenerateTotals = True
-                   , optionsGenerateSVG    = True
+      then options { optionsGenerateTotalsText = True
+                   , optionsGenerateTimedSVG   = True
                    }
       else options
   where
-    noOutputSelected = not optionsGenerateTotals
-                    && not optionsGenerateSVG
+    noOutputSelected = not optionsGenerateTotalsText
+                    && not optionsGenerateTimedSVG
+                    && not optionsGenerateTimedText

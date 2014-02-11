@@ -26,7 +26,8 @@ executable ghc-events-analyze
                        GHC.RTS.Events.Analyze.Script
                        GHC.RTS.Events.Analyze.Script.Standard
                        GHC.RTS.Events.Analyze.Reports.Totals
-                       GHC.RTS.Events.Analyze.Reports.SVG
+                       GHC.RTS.Events.Analyze.Reports.Timed
+                       GHC.RTS.Events.Analyze.Reports.Timed.SVG
 
   build-depends:       base                 >= 4.5  && < 4.7,
                        ghc-events           >= 0.4  && < 0.5,
