@@ -2,17 +2,6 @@ module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
     writeReport
   ) where
 
-{-
-import Prelude hiding (lines)
-import Data.Function (on)
-import Data.List (sortBy)
-import Data.Map (Map)
-
-import GHC.RTS.Events.Analyze.Analysis
-import GHC.RTS.Events.Analyze.Script
---import GHC.RTS.Events.Analyze.Utils
--}
-
 import Data.Maybe (catMaybes)
 import Data.Monoid (mempty, mconcat, (<>))
 import Diagrams.Backend.SVG (B, renderSVG)
@@ -25,8 +14,8 @@ import qualified Graphics.SVGFonts.ReadFont as F
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Reports.Timed hiding (writeReport)
 
-writeReport :: FilePath -> Report -> IO ()
-writeReport path = uncurry (renderSVG path) . renderReport
+writeReport :: Report -> FilePath -> IO ()
+writeReport report path = uncurry (renderSVG path) $ renderReport report
 
 type D = Diagram B R2
 

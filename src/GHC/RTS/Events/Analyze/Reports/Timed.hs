@@ -10,7 +10,7 @@ import Data.Function (on)
 import Data.List (sortBy)
 import Data.Map (Map)
 import Data.Maybe (catMaybes)
-import System.IO (Handle, hPutStrLn)
+import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
 import qualified Data.Map as Map
 
@@ -40,7 +40,7 @@ data ReportLine = ReportLineData {
   Report generation
 -------------------------------------------------------------------------------}
 
-createReport :: EventAnalysis -> Quantized -> Script -> [ReportFragment]
+createReport :: EventAnalysis -> Quantized -> Script -> Report
 createReport analysis Quantized{..} = concatMap go
   where
     go :: Command -> [ReportFragment]
@@ -104,8 +104,11 @@ showTitle def Nothing      = def
   Write the report in textual form
 -------------------------------------------------------------------------------}
 
-writeReport :: Handle -> Report -> IO ()
-writeReport h report = mapM_ writeFragment report
+writeReport :: Report -> FilePath -> IO ()
+writeReport report path = withFile path WriteMode $ writeReport' report
+
+writeReport' :: Report -> Handle -> IO ()
+writeReport' report h = mapM_ writeFragment report
   where
     writeFragment :: ReportFragment -> IO ()
     writeFragment (ReportSection title) = hPutStrLn h $ "\n" ++ title
