@@ -9,6 +9,8 @@ module GHC.RTS.Events.Analyze.Types (
   , numThreads
   , Quantized(..)
   , showEventId
+  , isUserEvent
+  , isThreadEvent
   ) where
 
 import Control.Lens (Lens', makeLenses, at, (^.))
@@ -42,10 +44,10 @@ data Options = Options {
     optionsGenerateSVG    :: Bool
   , optionsGenerateTotals :: Bool
   , optionsNumBuckets     :: Int
-  , optionsFilter         :: Maybe [EventId]
-  , optionsEventNames     :: [(EventId, String)]
   , optionsUserStart      :: String
   , optionsUserStop       :: String
+  , optionsScriptTotals   :: FilePath  -- "" denotes the standard script
+  , optionsScriptSVG      :: FilePath
     -- Defined last to make defining the parser easier
   , optionsInput      :: FilePath
   }
@@ -85,6 +87,9 @@ data EventAnalysis = EventAnalysis {
     -- how many start events we have seen, and hence how many ends we need to
     -- see before counting the event as finished.
   , _openEvents :: Map EventId (Timestamp, Int)
+
+    -- | Total amount of time per event
+  , eventTotals :: Map EventId Timestamp
   } deriving Show
 
 $(makeLenses ''EventAnalysis)
@@ -106,7 +111,7 @@ numThreads analysis = Map.size (analysis ^. _threadInfo)
 -- number of cores.
 data Quantized = Quantized {
     -- | For each event and each bucket how much of that bucket the event used up
-    quantTimes      :: Map (EventId, Int) Double
+    quantTimes      :: Map EventId (Map Int Double)
     -- | Like threadInfo, but quantized (start and finish bucket)
   , quantThreadInfo :: Map ThreadId (Int, Int, String)
   }
@@ -114,12 +119,17 @@ data Quantized = Quantized {
 -- | Show an event ID given the specified options (for renaming events)
 -- and information about threads (either `__threadInfo` from `EventAnalysis` or
 -- `quantThreadInfo` from `Quantized`).
-showEventId :: Options -> Map ThreadId (a, a, String) -> EventId -> String
-showEventId Options{..} info eid =
-    case (lookup eid optionsEventNames, eid) of
-      (Just str, _)        -> str
-      (_, EventGC)         -> "GC"
-      (_, EventUser event) -> event
-      (_, EventThread tid) -> case Map.lookup tid info of
-                                Just (_, _, l) -> l
-                                Nothing        -> show tid
+showEventId :: Map ThreadId (a, a, String) -> EventId -> String
+showEventId _     EventGC          = "GC"
+showEventId _    (EventUser event) = event
+showEventId info (EventThread tid) = case Map.lookup tid info of
+                                       Just (_, _, l) -> l
+                                       Nothing        -> show tid
+
+isUserEvent :: EventId -> Bool
+isUserEvent (EventUser _) = True
+isUserEvent _             = False
+
+isThreadEvent :: EventId -> Bool
+isThreadEvent (EventThread _) = True
+isThreadEvent _               = False

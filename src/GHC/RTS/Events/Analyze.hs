@@ -1,71 +1,57 @@
 module Main where
 
-import Prelude hiding (id)
-import Control.Applicative
+import Control.Applicative ((<$>))
 import Control.Monad (when)
-import Data.Function (on)
-import Data.List (sortBy)
-import GHC.RTS.Events (Timestamp)
-import qualified Data.Map as Map
-import System.IO (withFile, hPutStrLn, IOMode(WriteMode), Handle)
 import System.FilePath (replaceExtension, takeFileName)
+import System.IO (withFile, IOMode(WriteMode))
+import Text.Parsec.String (parseFromFile)
 
-import GHC.RTS.Events.Analyze.Types
-import GHC.RTS.Events.Analyze.Options
 import GHC.RTS.Events.Analyze.Analysis
-import GHC.RTS.Events.Analyze.Diagrams
+import GHC.RTS.Events.Analyze.Options
+import GHC.RTS.Events.Analyze.Reports.SVG
+import GHC.RTS.Events.Analyze.Reports.Totals
+import GHC.RTS.Events.Analyze.Script
+import GHC.RTS.Events.Analyze.Script.Standard
 
 main :: IO ()
 main = do
     options@Options{..} <- parseOptions
     analysis            <- analyze options <$> readEventLog optionsInput
 
-    when optionsGenerateTotals $ do
-      let output = replaceExtension (takeFileName optionsInput) "totals"
-      withFile output WriteMode $ printTotals options analysis
-      putStrLn $ "Wrote " ++ output
+    let quantized = quantize optionsNumBuckets analysis
 
-    when optionsGenerateSVG $ do
-      let quantized = quantize optionsNumBuckets analysis
-          output    = replaceExtension (takeFileName optionsInput) "svg"
-      uncurry (renderSVG output) $ diagramQuantTimes options quantized
-      putStrLn $ "Wrote " ++ output
+    let writeReport :: Bool
+                    -> FilePath
+                    -> Script
+                    -> String
+                    -> (FilePath -> Script -> IO ())
+                    -> IO ()
+        writeReport isEnabled
+                    scriptPath
+                    defaultScript
+                    newExt
+                    mkReport = when isEnabled $ do
+          let output = replaceExtension (takeFileName optionsInput) newExt
+          (scriptName, script) <- getScript scriptPath defaultScript
+          mkReport output script
+          putStrLn $ "Generated " ++ output ++ " using " ++ scriptName
 
-printTotals :: Options -> EventAnalysis -> Handle -> IO ()
-printTotals options analysis@EventAnalysis{..} h = do
-    let (gc, userEvents, threadEvents) = partitioned
+    writeReport optionsGenerateTotals
+                optionsScriptTotals
+                defaultScriptTotals
+                "totals" $ \output script ->
+      withFile output WriteMode $ \h -> reportTotals h analysis script
 
-    hPutStrLn h $ "TOTAL GC: " ++ showTotal gc
-    hPutStrLn h ""
+    writeReport optionsGenerateSVG
+                optionsScriptSVG
+                defaultScriptSVG
+                "svg" $ \output script ->
+      uncurry (renderSVG output) $ reportSVG analysis quantized script
 
-    hPutStrLn h $ "USER EVENTS (user events are corrected for GC)"
-    mapM_ showEventTotal (reverse (sortBy (compare `on` snd) userEvents))
-    hPutStrLn h $ "TOTAL: " ++ showTotal (sum (map snd userEvents))
-    hPutStrLn h ""
-
-    hPutStrLn h $ "THREADS"
-    mapM_ showEventTotal (sortBy (compare `on` fst) threadEvents)
-    hPutStrLn h $ "TOTAL: " ++ showTotal (sum (map snd threadEvents))
-  where
-    showEventTotal :: (EventId, Timestamp) -> IO ()
-    showEventTotal (eid, total) =
-      hPutStrLn h $ showEventId options __threadInfo eid ++ ": "
-                 ++ showTotal total
-
-    showTotal :: Timestamp -> String
-    showTotal total = show total ++ "ns (" ++ show (toSec total) ++ "s)"
-
-    toSec :: Timestamp -> Double
-    toSec = (/ 1000000000) . fromInteger . toInteger
-
-    partitioned :: ( Timestamp               -- GC
-                   , [(EventId, Timestamp)]  -- User events
-                   , [(EventId, Timestamp)]  -- Threads
-                   )
-    partitioned = go 0 [] [] (Map.toList (computeTotals analysis))
-      where
-        go accG accU accT []     = (accG, accU, accT)
-        go accG accU accT (e:es) = case e of
-          (EventGC,       time) -> go time      accU       accT  es
-          (EventUser _,   _)    -> go accG (e : accU)      accT  es
-          (EventThread _, _)    -> go accG      accU  (e : accT) es
+getScript :: FilePath -> Script -> IO (String, Script)
+getScript ""   def = return ("default script", def)
+getScript path _   = do
+  mScript <- parseFromFile pScript path
+  case mScript of
+    Left  err    -> fail (show err)
+    Right script -> return (path, script)

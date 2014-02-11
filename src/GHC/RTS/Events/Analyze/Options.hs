@@ -6,7 +6,6 @@ module GHC.RTS.Events.Analyze.Options (
 import Options.Applicative
 
 import GHC.RTS.Events.Analyze.Types
-import GHC.RTS.Events.Analyze.Utils
 
 parseOptions :: IO Options
 parseOptions = customExecParser (prefs showHelpOnError) opts
@@ -27,22 +26,10 @@ parserOptions = selectDefaultOutput <$> (Options
                    )
     <*> option     ( long "buckets"
                   <> short 'b'
-                  <> metavar "BUCKETS"
-                  <> help "Use BUCKETS buckets for quantization."
+                  <> metavar "INT"
+                  <> help "Use INT buckets for quantization."
                   <> showDefault
                   <> value 100
-                   )
-    <*> nullOption ( long "filter"
-                  <> metavar "LIST"
-                  <> help "Only show the events in LIST. LIST must be a comma separated list of event IDs, where an event ID is either \"GC\", a string (for user events), or an int (for thread IDs)."
-                  <> reader readEventIds
-                  <> value Nothing
-                   )
-    <*> nullOption ( long "rename"
-                  <> metavar "LIST"
-                  <> help "Rename events before showing them in the diagram. LIST must be a comma separated list of ID=string fields."
-                  <> reader readEventNames
-                  <> value []
                    )
     <*> strOption  ( long "start"
                   <> metavar "STR"
@@ -55,6 +42,16 @@ parserOptions = selectDefaultOutput <$> (Options
                   <> help "Use STR as the prefix for the end of user events"
                   <> showDefault
                   <> value "STOP "
+                   )
+    <*> strOption  ( long "script-totals"
+                  <> metavar "PATH"
+                  <> help "Use the script in PATH for the totals report"
+                  <> value ""
+                   )
+    <*> strOption  ( long "script-svg"
+                  <> metavar "PATH"
+                  <> help "Use the script in PATH for the SVG report"
+                  <> value ""
                    )
     <*> argument str (metavar "EVENTLOG")
   )
@@ -70,23 +67,3 @@ selectDefaultOutput options@Options{..} =
   where
     noOutputSelected = not optionsGenerateTotals
                     && not optionsGenerateSVG
-
-readEventIds :: String -> ReadM (Maybe [EventId])
-readEventIds = fmap Just . mapM readEventId . explode ','
-
-readEventId :: String -> ReadM EventId
-readEventId "GC"                 = return EventGC
-readEventId (reads -> [(i, "")]) = return (EventThread i)
-readEventId e                    = return (EventUser e)
-
-readEventNames :: String -> ReadM [(EventId, String)]
-readEventNames = mapM readEventName . explode ','
-
-readEventName :: String -> ReadM (EventId, String)
-readEventName s =
-  case break (== '=') s of
-    (before, '=' : after) -> do
-      eid <- readEventId before
-      return (eid, after)
-    _ ->
-      fail $ "Unexpected " ++ show s ++ ". Expected ID=string"

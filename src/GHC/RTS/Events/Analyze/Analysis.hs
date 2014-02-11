@@ -6,8 +6,9 @@ module GHC.RTS.Events.Analyze.Analysis (
   , threadInfo
   , numThreads
   , analyze
-    -- * Totals
-  , computeTotals
+    -- * Using EventAnalysis
+  , eventTotal
+  , compareEventIds
     -- * Quantization
   , quantize
   ) where
@@ -23,6 +24,7 @@ import qualified Data.Map as Map
 import GHC.RTS.Events.Analyze.Utils
 import GHC.RTS.Events.Analyze.StrictState (State, execState)
 import GHC.RTS.Events.Analyze.Types
+import GHC.RTS.Events.Analyze.Script
 
 {-------------------------------------------------------------------------------
   Auxiliary
@@ -42,7 +44,9 @@ readEventLog  = throwLeftStr . readEventLogFromFile
 
 analyze :: Options -> EventLog -> EventAnalysis
 analyze Options{..} log =
-    execState (mapM_ analyzeEvent (sortedEvents log)) initialEventAnalysis
+    let analysis = execState (mapM_ analyzeEvent (sortedEvents log))
+                             initialEventAnalysis
+    in analysis { eventTotals = computeTotals (_events analysis) }
   where
     analyzeEvent :: Event -> State EventAnalysis ()
     analyzeEvent (Event time spec) = case spec of
@@ -138,15 +142,11 @@ initialEventAnalysis = EventAnalysis {
     _events      = []
   , __threadInfo = Map.empty
   , _openEvents  = Map.empty
+  , eventTotals  = error "Computed at the end"
   }
 
-{-------------------------------------------------------------------------------
-  Computing totals
--------------------------------------------------------------------------------}
-
--- | Total amount of time spent per event
-computeTotals :: EventAnalysis -> Map EventId Timestamp
-computeTotals EventAnalysis{..} = go Map.empty _events
+computeTotals :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp
+computeTotals = go Map.empty
   where
     go :: Map EventId Timestamp
        -> [(EventId, Timestamp, Timestamp)]
@@ -154,6 +154,26 @@ computeTotals EventAnalysis{..} = go Map.empty _events
     go !acc [] = acc
     go !acc ((eid, start, stop) : es) =
       go (Map.insertWith' (+) eid (stop - start) acc) es
+
+{-------------------------------------------------------------------------------
+  Using EventAnalysis
+-------------------------------------------------------------------------------}
+
+-- | Lookup a total for a given event
+eventTotal :: EventAnalysis -> EventId -> Timestamp
+eventTotal EventAnalysis{..} eid =
+    case Map.lookup eid eventTotals of
+      Nothing -> error $ "Invalid event ID " ++ show eid ++ ". "
+                      ++ "Valid IDs are " ++ show (Map.keys eventTotals)
+      Just t  -> t
+
+-- | Compare event IDs
+compareEventIds :: EventAnalysis -> EventSort
+                -> EventId -> EventId -> Ordering
+compareEventIds analysis sort a b =
+    case sort of
+      SortByName  -> compare a b
+      SortByTotal -> compare (eventTotal analysis b) (eventTotal analysis a)
 
 {-------------------------------------------------------------------------------
   Quantization
@@ -165,18 +185,27 @@ quantize numBuckets EventAnalysis{..} = Quantized {
     , quantThreadInfo = Map.map quantizeThreadInfo __threadInfo
     }
   where
-    go :: Map (EventId, Int) Double
+    go :: Map EventId (Map Int Double)
        -> [(EventId, Timestamp, Timestamp)]
-       -> Map (EventId, Int) Double
-    go acc [] = acc
-    go acc ((tid, start, end) : ttimes') =
-      let startBucket = fromIntegral $ start `div` bucketSize
+       -> Map EventId (Map Int Double)
+    go !acc [] = acc
+    go !acc ((eid, start, end) : ttimes') =
+      let startBucket, endBucket :: Int
+          startBucket = fromIntegral $ start `div` bucketSize
           endBucket   = fromIntegral $ end   `div` bucketSize
-          updates     = Map.fromList
-                      $ [ ((tid, b), delta startBucket endBucket start end b)
-                        | b <- [startBucket .. endBucket]
-                        ]
-      in go (Map.unionWith (+) acc updates) ttimes'
+
+          updates :: Map Int Double
+          updates = Map.fromAscList
+                  $ [ (b, delta startBucket endBucket start end b)
+                    | b <- [startBucket .. endBucket]
+                    ]
+
+          update :: Maybe (Map Int Double) -> Maybe (Map Int Double)
+          update Nothing    = Just $ updates
+          update (Just old) = let new = Map.unionWith (+) updates old
+                              in new `seq` Just new
+
+      in go (Map.alter update eid acc) ttimes'
 
     --           (a,                    b)
     --       |          |   ...    |          |
