@@ -1,11 +1,25 @@
 Introducing ghc-events-analyze 
 ==============================
 
-`ghc-events-analyze` is an alternative visualization tool for eventlogs. It
-shows CPU activity across all your threads, and supports visualizing arbitrary
-user events. It is very useful for profiling code when ghc's own profiler is
-not available, or when you need to trace profiling information over time (as
-opposed to totals).
+`ghc-events-analyze` is a simple Haskell profiling tool that uses GHC's
+eventlog system. It helps with some profiling use cases that are not covered
+by the existing GHC profiling modes or tools. It has two major features:
+
+ * While `ThreadScope` shows CPU activity across all your *cores*,
+   `ghc-events-analyze` shows CPU activity across all your *Haskell threads*.
+
+ * It lets you label periods of time during program execution (by instrumenting
+   your code with special trace calls) and then lets you visualize those
+   time periods or get statistics on them.
+
+It is very useful for profiling code when ghc's normal profiling mode is not
+available, or when using profiling mode would perturb the code too much. It is
+also useful when you want time-profiling information with a breakdown over time
+rather than totals for the whole run.
+
+We developed the tool at Well-Typed while working on client projects where we
+had profiling needs that were not covered by the existing tools. We are
+releasing the tool in the hope that it will be useful to others.
 
 Motivating Example
 ------------------
@@ -15,22 +29,22 @@ multi-threaded application:
 
     import Control.Concurrent (threadDelay)
     import Control.Concurrent.Async (async, wait)
-    
+
     -- Intentionally slow fib
     fib :: Integer -> Integer
     fib 0 = 1
     fib 1 = 1
     fib n = fib (n - 1) + fib (n - 2)
-    
+
     printFib :: Integer -> IO ()
     printFib n = print (fib n)
-    
+
     blips :: IO ()
     blips = do
       putStrLn "BLIP"
       threadDelay 5000000
       putStrLn "BLIP"
-    
+
     main :: IO ()
     main = do
       a1 <- async $ mapM_ printFib [30, 32 .. 38]
@@ -39,14 +53,13 @@ multi-threaded application:
       a3 <- async $ blips
       mapM_ wait [a1, a2, a3]
 
-We can compile this application and run it on two cores, and ask it to produce
-an eventlog:
+We can compile this application and ask it to produce an eventlog:
 
     ghc ex0 -eventlog
-    ex0 +RTS -l
+    ./ex0 +RTS -l
 
 But when we open this eventlog in 
-[threadscope](http://hackage.haskell.org/package/threadscope) the result is not
+[ThreadScope](http://hackage.haskell.org/package/threadscope) the result is not
 particularly enlightning:
 
 ![threadscope](ex0-NT-threadscope.png)
@@ -55,8 +68,11 @@ The program was compiled without the `-threaded` flag, forcing all work to run
 on a single HEC (Haskell Execution Context -- roughly, a CPU core). This makes
 it impossible to see the distribution of workload across the various
 application threads.  This will be true whenever multiple threads are executed
-by a single HEC (i.e., almost always). If we run the same eventlog through
-`ghc-events-analyze` instead we get
+by a single HEC (i.e., almost always).  Of course `ThreadScope` is really
+designed for looking at *parallel* programs, and that's not what we've got here.
+Here we're trying to understand the behaviour of a simple *concurrent* program.
+
+If we run the same eventlog through `ghc-events-analyze` instead we get
 
 ![ghc-events-analyze, no instrumentation](ex0-NT.timed.png)
 
@@ -79,15 +95,19 @@ Some points to note:
    completes and the second thread gets 97% of CPU (`ghc-events-analyze` also
    generates the same report in textual form with precise values for each
    block). 
-4. The thread lifetime of each thread is also immediately clear.
+4. The lifetime of each thread is also immediately clear.
 
 Instrumentation
 ---------------
 
 If we instrument our code, we can improve this diagram in a number of ways. We
 can use `labelThread` from `GHC.Conc` to give our threads names, so that it
-becomes easier to see what's what. Moreover, `ghc-events-analyze` supports
-user events. To use these user events mark the start of a user event with
+becomes easier to see what's what.
+
+Moreover, `ghc-events-analyze` lets us give labels to periods of time during
+execution which we can then visualise or get statistics on. To label a period
+of time we use the event tracing functions from `Debug.Trace`. We mark the
+start of a period with
 
     traceEventIO "START <eventName>"
 
@@ -95,42 +115,45 @@ and the end with
 
     traceEventIO "STOP <eventName>"
 
-Note that these user events are completely independent of threads; they can
-overlap each other, span multiple threads, etc. Here's our example application
-again, but with some instrumentation added:
+Use `traceEventIO` if you are in an `IO` context, while in a pure context you
+can use `traceEvent`.
+
+Note that these labelled time periods are completely independent of threads;
+they can overlap each other, span multiple threads, etc. Here's our example
+application again, but with some instrumentation added:
 
     import Control.Concurrent (myThreadId, threadDelay)
     import Control.Concurrent.Async (Async, async, wait)
     import Control.Exception (bracket_)
     import Debug.Trace (traceEventIO)
     import GHC.Conc (labelThread)
-    
+
     event :: String -> IO a -> IO a
     event label =
       bracket_ (traceEventIO $ "START " ++ label)
                (traceEventIO $ "STOP "  ++ label)
-    
+
     async' :: String -> IO a -> IO (Async a)
     async' label act = async $ do
       tid <- myThreadId
       labelThread tid label
       act
-    
+
     -- Intentionally slow fib
     fib :: Integer -> Integer
     fib 0 = 1
     fib 1 = 1
     fib n = fib (n - 1) + fib (n - 2)
-    
+
     printFib :: Integer -> IO ()
     printFib n = event ("fib" ++ show n) $ print (fib n)
-    
+
     blips :: IO ()
     blips = do
       putStrLn "BLIP"
       threadDelay 5000000
       putStrLn "BLIP"
-    
+
     main :: IO ()
     main = do
       a1 <- async' "events" $ mapM_ printFib [30, 32 .. 38]
@@ -218,54 +241,62 @@ and for the two cores case
     7                      9000ns    0.000s
     TOTAL           49425486000ns   49.425s
 
-Some notes:
+For the user-labelled time periods the tool is giving us the wall-clock time
+between the "START" and "STOP" events, excluding time spent doing GC. If there
+are multiple start/stop periods for the same label then it gives us the total
+time. We exclude GC time because GC happens at essentially arbitrary points and
+it would not be helpful to account the full cost of a GC to one user-labelled
+time period (which might otherwise be very short indeed).
 
-1. The total amount of time for each user event is _less_ in the two core case,
-   because in the single core case those user events find themselves "waiting"
-   for other threads.
-2. However, the total time across all _threads_ is approximately much the same
+Some notes for this example:
+
+1. The total amount of time for our `fibNN`-periods is _less_ in the two core
+   case, because in the single core case neither of the threads evaluating
+   `fib` calls are running all the time -- since the two threads have to share
+   the one core.
+2. However, the total time across all _threads_ is approximately the same
    in both cases; we are still doing the same amount of work, it's just that 
    in the two core case the work of some of those threads is overlapped.
-3. In fact, for this particular example (with the user events created as we
-   have) we can see from the totals that in the single core case we are doing a
-   lot of waiting (taking 78.2s seconds to do 44.3 seconds worth of work),
-   while we are doing almost no waiting at all in the two core case (taking
-   50.0 seconds to do 49.4 seconds worth of work).  
-4. `ghc-events-analyze` corrects user events for garbage collection;
-   basically, it simulates that all user events are stopped when garbage
-   collection starts, and are resumed again when garbage collection finishes.
-   This matches the stop-the-world nature of ghc's garbage collector, and means
-   that you can more meaningfully compare total time for different user events.    
+3. It is important not to confuse our labelled time periods with a thread
+   running and doing real work. We can see in this example in the single-core
+   case that the sum of all the `fibNN` time periods is much longer than the
+   total execution time of all threads in the program (78.2 seconds vs 44.3
+   seconds). That is because we have two threads running these fib tasks but
+   each of those threads is only gettting about 50% of the CPU. In the two-core
+   case the two threads each get a core to themselves and so the total of our
+   `fibNN` time periods is very close to the total thread execution time
+   (50.0 seconds vs 49.4 seconds).
 
 Real World Application 1
 ------------------------
 
-Well-Typed have been developing a server application for a particular client.
+Well-Typed have been developing a server application for a client.
 The client reported that after certain kinds of requests the server had
 unexpected spikes in CPU usage. For technical reasons we could not compile the
-server application with profiling enabled, and hence profiling information was
-not available. Moreover, profiling would only give us totals, not CPU usage
-over time. However, we could generate an eventlog; visualizing the eventlog
-with threadscope yielded 
+server application in profiling mode, and hence profiling information was
+not available. Moreover, GHC's normal time profiling would have given us totals
+across the whole program run (broken down by cost center), but we needed a
+breakdown of CPU usage over time. We could however generate an eventlog;
+visualizing the eventlog with threadscope yielded
 
 ![server threadscope](server-I0.3-threadscope.png)
 
 We can make certain educated guesses from this picture: the spikes in activity
-are probably different requests coming in at the server, and the reported
+are probably different requests coming in to the server, and the reported
 unexpected CPU usage reported by the client might be related to garbage
-collection (the orange blobs that threadscope reports). However, instrumenting
-the code (by labelling some threads and adding user events that correspond to
-the server handling different kinds of user requests) and then running it
-through `ghc-events-analyze` yielded a more informative picture:
+collection (the orange blobs that threadscope shows). However, instrumenting
+the code (by labelling some threads and labelling time periods that correspond
+to the server handling different kinds of requests) and then running it through
+`ghc-events-analyze` yielded a more informative picture:
 
 ![server with -I0.3](server-I0.3.timed.png)
 
 (This uses `ghc-events-analyze`'s `--filter` option to only show certain
-events/threads.) The user events clearly show when the server is handing
-requests of type A and B, and we see corresponding spikes in CPU activity in
-the server's main thread (with ID 6). Threads 4 and 5 handle communication
-between the client and server, and we see "blips" at the start and end of each
-request, as expected. 
+events/threads.) The labelled time periods now clearly show when the server is
+handing requests of type A and B, and we see corresponding spikes in CPU
+activity in the server's main thread (with ID 6). Threads 4 and 5 handle
+communication between the client and server, and we see "blips" at the start
+and end of each request, as expected.
 
 The garbage collection during the A requests is expected, both because of
 domain specific knowledge about what type A requests are, but also from the
@@ -275,54 +306,61 @@ domain specific knowledge about type B rqeuests, but also from the diagram:
 there is barely any activity in the system at all, so why so much garbage
 collection?
 
-This lead us to suspect "idle GC cycles". The ghc garbage collector will run in
-two cases: (1) when required, and (2) when the system is not doing anything
-useful anyway. The latter are known as idle GC cycles, and when running an
-application you can finetune how often these idle cycles happen. The default is
-every 0.3 seconds (provided that there was _some_ activity in the system), but
-by specifiying `+RTS -Ix -RTS` you can specify that it should run every _x_
-seconds instead. Indeed, running the server with a much lower rate of idle GC
-cycles yielded this picture:
+This lead us to suspect "idle GC". The GHC garbage collector will run in
+two cases: (1) when required when we're out of memory, and (2) after the whole
+program has been idle for a bit. The latter are known as idle GC. The point of
+idle GC is the hope that we might be able to return some memory to the OS. The
+default is to do a GC 0.3 seconds after the program becomes idle. This means if
+your program does a tiny bit of work every 0.4 seconds but is otherwise idle
+then you're going to be paying for a major GC every 0.4 seconds. We can adjust
+the timeout for when idle GC happens, or even disable it entirely using the
+`+RTS -Ix` flag. In our case, running the server with a much longer timeout for
+idle GC cycles yielded this picture:
 
 ![server with -I10](server-I10.timed.png)
 
 Note how we no longer see any garbage collection during B requests; we still
 get garbage collection during A requests, but that is expected. Moreover, we
-don't see any garbage collection _after_ the second B request either. This was
-due to a new thread (199) that was spawned by the second B request. Although
-this thread is not very active (low CPU activity), it does just enough to
-justify more idle GC runs, even though those idle GC runs are pretty much
-wasted effort. 
+don't see any garbage collection _after_ the second B request either. We found
+that this had been due to a new thread (199) that was spawned by the second B
+request. This thread was running occasionally but because it was the only
+active thread it determined whether the whole system was idle. It was letting
+the system go idle just long enough to trigger idle GC, then doing a tiny bit
+of work, more idle GC etc. These collections are not cheap because they are
+major collections that scan the whole heap.
+
+The simple thing to do in this situation is to just disable idle GC entirely
+with `+RTS -I0`. We decided to keep it because it is still useful to return
+memory to the system in this case, we just use a much longer timeout.
 
 Real World Application 2
 ------------------------
 
 Well-Typed was asked to improve the performance of a particular application.
-From a high level understanding of the code it was clear that this application
-was centered around a single function _foo_, and that the performance of _foo_
-might vary dramatically for different inputs. We therefore needed to optimize
-_foo_ in different ways given different inputs, but also measure the
-performance of _foo_ differently for such different inputs.
+At one point during this work we needed to determine what proportion of overall
+execution time a certain set of functions were taking, and a breakdown between
+these functions. GHC's normal time profiling was not appropriate for a few
+reasons:
 
-The latter fact made it difficult to use ghc's standard profiling tools, and
-modifiying the application so that different ways of invoking the function
-would be bound to different names (so that we could attach different cost
-centres to them) was much too laborious. Moreover, enabling profiling was not
-an option for two other reasons. First, this application was very performance
-critical, with some parts heavily optimized already, and the instrumentation
-added by using a profiling build would skew the results too much. Second, the
-program was slow as it is; enabling profiling would make running the program
-too slow to work with. 
+ * Assigning manual cost centers to the set of functions of interest would have
+   been tricky for technical reasons: they were not separate named functions
+   but one class-overloaded function and we wanted to count each instance
+   separately.
+ * The application had some parts heavily optimized already, and the
+   instrumentation added by using a profiling build would skew the results too
+   much.
+ * The program took a long time to run as it was; enabling profiling would make
+   the edit-run development cycle too slow.
 
-However, the overhead added by enabling the eventlog is negligible. Moreover,
-we can easily use `ghc-events-analyze`'s user events to generate different
-kinds of events for different kinds of inputs (like we did in the fib example,
-above).  The totals reported by `ghc-events-analyze` enabled us to easily see
-what kinds of inputs _foo_ needed to be optimized for the most, and to guide
-our improvements (like normal profiling would). 
+The overhead added by enabling the eventlog is negligible however. Moreover,
+we can easily use `traceEvent` to label the execution of our class-overloaded
+function for each of its various instances (like we did in the fib example,
+above).  The totals reported by `ghc-events-analyze` enabled us to easily get
+the total time taken by this family of functions and the breakdown by instance,
+and to guide our subsequent improvements (like normal profiling would). 
 
     GC    25421789435ns   25.422s
-    foo   53959674392ns   53.960s
+    A-X   53959674392ns   53.960s
     
     DETAILED BREAKDOWN
     A      3939896208ns    3.940s
@@ -350,17 +388,27 @@ our improvements (like normal profiling would).
     W      2295049375ns    2.295s
     X      1734910406ns    1.735s
 
-_A_, _B_, etc. are the different kinds of events, corresponding to different
-ways of invoking _foo_. TODO: describe what kinds of conclusions we can draw
-from this.
+We have replaced the real names from this program with labels `A`--`X`. We 
+can see that the top few most expensive variants of the function account for
+the majority of execution time. We could also see that the total of all these
+calls made up the vast majority of the whole program execution time (excluding
+GC). Thus we were able to focus our attention on the parts of the code where
+there was greatest opportunity to make imrovements.
 
-In this case the visualization of CPU usage over
-time didn't tell us much extra:
+In this case the visualization of CPU usage over time does not tell us much
+extra:
 
 ![foo](foo.timed.png)
 
-except that `foo` is indeed busy very consistently after an initial setup (at
-about 60% of CPU, with the garbage collector running at about 25% CPU).
+It is worth noting that when we generated the eventlog for this application
+we selected only user events and GC events (`+RTS -l-agu -RTS`). Excluding
+the thread scheduler events dramatically reduces the size of the eventlog,
+which in this case would have been too big otherwise. `ghc-events-analyze` does
+not rely on thread events being available, though you do then miss out on a
+per-thread breakdown of CPU activity. Moreover, since the creation of this
+diagram is relatively time consuming for large eventlogs, you can use the
+`--no-svg` option to omit it if you are interested only the totals and the
+breakdown.
 
 Availability
 ------------
