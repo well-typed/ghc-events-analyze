@@ -27,7 +27,7 @@ maintainer:          edsko@well-typed.com
 copyright:           2013-2014 Well-Typed LLP
 category:            Development, Profiling, Trace
 build-type:          Simple
--- extra-source-files:  
+extra-source-files:  ChangeLog
 cabal-version:       >=1.10
 
 source-repository head
