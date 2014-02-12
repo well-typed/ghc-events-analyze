@@ -1,5 +1,5 @@
 name:                ghc-events-analyze
-version:             0.1.0
+version:             0.2.0
 synopsis:            Analyze and visualize event logs 
 -- description:         
 license:             BSD3

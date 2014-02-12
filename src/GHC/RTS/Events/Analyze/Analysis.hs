@@ -235,15 +235,15 @@ quantize numBuckets EventAnalysis{..} = Quantized {
     --                      bucket
 
     delta :: Int -> Int -> Timestamp -> Timestamp -> Int -> Double
-    delta startBucket endBucket start end b = case () of
-      () | b == startBucket && startBucket == endBucket ->
-            t2d (end - start) / t2d bucketSize
-         | b == startBucket ->
-            t2d (bucketEnd b - start) / t2d bucketSize
-         | b == endBucket ->
-            t2d (end - bucketStart b) / t2d bucketSize
-         | otherwise ->
-            1
+    delta startBucket endBucket start end b
+      | b == startBucket && startBucket == endBucket =
+         t2d (end - start) / t2d bucketSize
+      | b == startBucket =
+         t2d (bucketEnd b - start) / t2d bucketSize
+      | b == endBucket =
+         t2d (end - bucketStart b) / t2d bucketSize
+      | otherwise =
+         1
 
     startTime, endTime, bucketSize :: Timestamp
     startTime  = fromMaybe (error "_startup not set")  _startup
