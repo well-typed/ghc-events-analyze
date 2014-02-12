@@ -9,13 +9,15 @@ module GHC.RTS.Events.Analyze.Script (
   , Command(..)
     -- * Script execution
   , matchesFilter
-    -- * Parsing
+    -- * Parsing and unparsing
   , pScript
+  , unparseScript
     -- * Quasi-quoting support
   , scriptQQ
   ) where
 
 import Control.Applicative ((<$>), (<*>), (*>), (<*))
+import Data.List (intercalate)
 import Data.Word (Word32)
 import Language.Haskell.TH.Lift (deriveLiftMany)
 import Language.Haskell.TH.Quote
@@ -64,7 +66,6 @@ data EventFilter =
     -- > [GC, "foo", 5]
   | Any [EventFilter]
   deriving Show
-
 
 -- | Sorting
 data EventSort =
@@ -134,6 +135,7 @@ lexer = P.makeTokenParser haskellDef {
               , "by"
               , "total"
               , "name"
+              , "all"
               ]
            }
 
@@ -167,7 +169,7 @@ pCommand :: Parser Command
 pCommand = (Section <$> (reserved "section" *> stringLiteral))
        <|> (One     <$> pEventId                         <*> pTitle)
        <|> (Sum     <$> (reserved "sum" *> pEventFilter) <*> pTitle)
-       <|> (All     <$> pEventFilter                     <*> pEventSort)
+       <|> (All     <$> (reserved "all" *> pEventFilter) <*> pEventSort)
 
 pEventSort :: Parser (Maybe EventSort)
 pEventSort = optionMaybe $ reserved "by" *> (
@@ -203,3 +205,36 @@ parseScriptString source input =
   case runParser pScript () source input of
     Left  err    -> fail (show err)
     Right script -> return script
+
+{-------------------------------------------------------------------------------
+  Unparsing
+-------------------------------------------------------------------------------}
+
+unparseScript :: Script -> [String]
+unparseScript = concatMap unparseCommand
+
+unparseCommand :: Command -> [String]
+unparseCommand (Section title) = ["", title]
+unparseCommand (One eid title) = [unparseEventId eid ++ " " ++ unparseTitle title]
+unparseCommand (All f sort)    = ["all " ++ unparseFilter f ++ " " ++ unparseSort sort]
+unparseCommand (Sum f title)   = ["sum " ++ unparseFilter f ++ " " ++ unparseTitle title]
+
+unparseEventId :: EventId -> String
+unparseEventId EventGC           = "GC"
+unparseEventId (EventUser e)     = e
+unparseEventId (EventThread tid) = show tid
+
+unparseTitle :: Maybe Title -> String
+unparseTitle Nothing  = ""
+unparseTitle (Just t) = "as " ++ t
+
+unparseSort :: Maybe EventSort -> String
+unparseSort Nothing            = ""
+unparseSort (Just SortByName)  = "by name"
+unparseSort (Just SortByTotal) = "by total"
+
+unparseFilter :: EventFilter -> String
+unparseFilter (Is eid) = unparseEventId eid
+unparseFilter IsUser   = "user"
+unparseFilter IsThread = "thread"
+unparseFilter (Any fs) = "[" ++ intercalate "," (map unparseFilter fs) ++ "]"

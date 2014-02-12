@@ -6,6 +6,8 @@ module GHC.RTS.Events.Analyze.Options (
 import Options.Applicative
 
 import GHC.RTS.Events.Analyze.Types
+import GHC.RTS.Events.Analyze.Script
+import GHC.RTS.Events.Analyze.Script.Standard
 
 parseOptions :: IO Options
 parseOptions = customExecParser (prefs showHelpOnError) opts
@@ -17,7 +19,11 @@ parseOptions = customExecParser (prefs showHelpOnError) opts
               )
 
 parserOptions :: Parser Options
-parserOptions = selectDefaultOutput <$> (Options
+parserOptions =
+      infoOption scriptHelp ( long "help-script"
+                           <> help "Detailed information about scripts"
+                            )
+  <*> (selectDefaultOutput <$> (Options
     <$> switch     ( long "timed"
                   <> help "Generate timed report (in SVG format)"
                    )
@@ -57,7 +63,43 @@ parserOptions = selectDefaultOutput <$> (Options
                   <> value ""
                    )
     <*> argument str (metavar "EVENTLOG")
-  )
+  ))
+
+scriptHelp :: String
+scriptHelp = unlines [
+      "Scripts are used to drive report generation. The syntax for scripts is"
+    , ""
+    , "<script>  ::= <command>+"
+    , ""
+    , "<command> ::= \"section\" STRING"
+    , "            | <eventId>      (\"as\" STRING)?"
+    , "            | \"sum\" <filter> (\"as\" STRING)?"
+    , "            | <filter>       (\"by\" <sort>)?"
+    , ""
+    , "<eventId> ::= STRING     -- user event"
+    , "            | INT        -- thread event"
+    , "            | \"GC\"       -- garbage collection"
+    , ""
+    , "<filter>  ::= <eventId>  -- single event"
+    , "            | \"user\"     -- any user event"
+    , "            | \"thread\"   -- any thread event"
+    , "            | \"any\" \"[\" <filter> (\",\" <filter>)* \"]\""
+    , ""
+    , "<sort>    ::= \"total\""
+    , "            | \"name\""
+    , ""
+    , "The default script for the timed reports is\n"
+    ]
+    ++ indent (unparseScript defaultScriptTimed)
+    ++ "\nThe default script for the totals report is\n\n"
+    ++ indent (unparseScript defaultScriptTotals)
+    ++ unlines [
+      "\nCustom scripts are useful extract different kinds of data from the"
+    , "eventlog, or for presentation purposes."
+    ]
+  where
+    indent :: [String] -> String
+    indent = unlines . map ("  " ++)
 
 -- | Select which output is active if no output is selected at all
 selectDefaultOutput :: Options -> Options

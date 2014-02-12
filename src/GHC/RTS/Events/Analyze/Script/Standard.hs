@@ -11,11 +11,11 @@ defaultScriptTotals = [scriptQQ|
     GC
 
     section "USER EVENTS (user events are corrected for GC)"
-    user by total
+    all user by total
     sum user
 
     section "THREAD EVENTS"
-    thread by name
+    all thread by name
     sum thread
   |]
 
@@ -24,8 +24,8 @@ defaultScriptTimed = [scriptQQ|
     GC
 
     section "USER EVENTS"
-    user by name
+    all user by name
 
     section "THREAD EVENTS"
-    thread by name
+    all thread by name
   |]
