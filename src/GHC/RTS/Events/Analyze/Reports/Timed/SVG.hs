@@ -38,7 +38,7 @@ renderReport report = (D.sizeSpec2D rendered, rendered)
     padHeader :: Double -> D -> D
     padHeader height h =
          D.translateX (0.5 * blockSize) h
-      <> D.rect headerWidth height # D.alignL
+      <> D.rect headerWidth height # D.alignL # D.lw 0
 
     headerWidth :: Double
     headerWidth = blockSize -- extra padding
