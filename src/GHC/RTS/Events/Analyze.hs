@@ -44,7 +44,7 @@ main = do
 
     writeReport optionsGenerateTimedSVG
                 timedScriptName
-                "timed.svg" $ TimedSVG.writeReport timed
+                "timed.svg" $ TimedSVG.writeReport options quantized timed
 
     writeReport optionsGenerateTimedText
                 timedScriptName

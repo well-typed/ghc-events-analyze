@@ -125,6 +125,8 @@ data Quantized = Quantized {
     quantTimes      :: Map EventId (Map Int Double)
     -- | Like threadInfo, but quantized (start and finish bucket)
   , quantThreadInfo :: Map ThreadId (Int, Int, String)
+    -- | Size of each bucket
+  , quantBucketSize :: Timestamp
   }
   deriving Show
 

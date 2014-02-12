@@ -6,7 +6,9 @@ import Data.Maybe (catMaybes)
 import Data.Monoid (mempty, mconcat, (<>))
 import Diagrams.Backend.SVG (B, renderSVG)
 import Diagrams.Prelude (Diagram, Colour, R2, SizeSpec2D, (#), (|||))
+import GHC.RTS.Events (Timestamp)
 import Graphics.SVGFonts.ReadFont (TextOpts(..))
+import Text.Printf (printf)
 import qualified Data.Map as Map
 import qualified Diagrams.Prelude           as D
 import qualified Graphics.SVGFonts.ReadFont as F
@@ -14,16 +16,19 @@ import qualified Graphics.SVGFonts.ReadFont as F
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Reports.Timed hiding (writeReport)
 
-writeReport :: Report -> FilePath -> IO ()
-writeReport report path = uncurry (renderSVG path) $ renderReport report
+writeReport :: Options -> Quantized -> Report -> FilePath -> IO ()
+writeReport options quantized report path =
+  uncurry (renderSVG path) $ renderReport options quantized report
 
 type D = Diagram B R2
 
-renderReport :: Report -> (SizeSpec2D, D)
-renderReport report = (D.sizeSpec2D rendered, rendered)
+renderReport :: Options -> Quantized -> Report -> (SizeSpec2D, D)
+renderReport Options{optionsNumBuckets}
+             Quantized{quantBucketSize}
+             report = (D.sizeSpec2D rendered, rendered)
   where
     rendered :: D
-    rendered = D.vcat $ map renderSVGFragment fragments
+    rendered = D.vcat $ map renderSVGFragment (SVGTimeline : fragments)
 
     fragments :: [SVGFragment]
     fragments = map renderFragment report
@@ -34,6 +39,8 @@ renderReport report = (D.sizeSpec2D rendered, rendered)
     renderSVGFragment (SVGLine header blocks) =
       -- Add empty block at the start so that the whole thing doesn't shift up
       padHeader blockSize header ||| (blocks <> (block 0 # D.lw 0))
+    renderSVGFragment SVGTimeline =
+      padHeader blockSize mempty ||| timeline optionsNumBuckets quantBucketSize
 
     padHeader :: Double -> D -> D
     padHeader height h =
@@ -49,16 +56,17 @@ renderReport report = (D.sizeSpec2D rendered, rendered)
     headerWidthOf _                  = Nothing
 
 data SVGFragment =
-    SVGSection D
+    SVGTimeline
+  | SVGSection D
   | SVGLine D D
 
 renderFragment :: ReportFragment -> SVGFragment
-renderFragment (ReportSection title) = SVGSection (renderText title)
+renderFragment (ReportSection title) = SVGSection (renderText title (blockSize + 2))
 renderFragment (ReportLine line)     = uncurry SVGLine $ renderLine line
 
 renderLine :: ReportLine -> (D, D)
 renderLine line@ReportLineData{..} =
-    ( renderText lineHeader
+    ( renderText lineHeader (blockSize + 2)
     , blocks <> bgBlocks lineBackground
     )
   where
@@ -84,12 +92,12 @@ bgBlocks (Just (fr, to)) = mconcat [
                              | b <- [fr .. to]
                              ]
 
-renderText :: String -> D
-renderText str =
-    D.stroke (F.textSVG' (textOpts str)) # D.fc D.black # D.lc D.black # D.alignL
+renderText :: String -> Double -> D
+renderText str size =
+    D.stroke (F.textSVG' (textOpts str size)) # D.fc D.black # D.lc D.black # D.alignL
 
-textOpts :: String -> TextOpts
-textOpts str =
+textOpts :: String -> Double -> TextOpts
+textOpts str size =
     TextOpts {
         txt        = str
       , fdo        = F.lin
@@ -97,7 +105,7 @@ textOpts str =
       , spacing    = F.KERN
       , underline  = False
       , textWidth  = 0 -- not important
-      , textHeight = blockSize + 2
+      , textHeight = size
       }
 
 -- | Translate quantized value to opacity
@@ -120,3 +128,26 @@ block i = D.translateX (blockSize * fromIntegral i)
 
 blockSize :: Double
 blockSize = 10
+
+timeline :: Int -> Timestamp -> D
+timeline numBuckets bucketSize =
+    mconcat [ timelineBlock b # D.translateX (fromIntegral b * blockSize)
+            | b <- [0 .. numBuckets - 1]
+            ]
+  where
+    timelineBlock b
+      | b `rem`5 == 0 = D.strokeLine bigLine   # D.lw 0.5
+                     <> (renderText (bucketTime b) 9 # D.translateY 8)
+      | otherwise     = D.strokeLine smallLine # D.lw 0.5 # D.translateY 1
+
+    bucketTime :: Int -> String
+    bucketTime b = let timeNs :: Timestamp
+                       timeNs = fromIntegral b * bucketSize
+
+                       timeS :: Double
+                       timeS = fromIntegral timeNs / 1000000000
+                   in printf "%0.1fs" timeS
+
+    bigLine   = mkLine [(0, 4), (blockSize, 0)]
+    smallLine = mkLine [(0, 3), (blockSize, 0)]
+    mkLine    = D.fromSegments . map (D.straight . D.r2)

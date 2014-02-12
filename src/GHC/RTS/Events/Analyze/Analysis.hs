@@ -202,6 +202,7 @@ quantize :: Int -> EventAnalysis -> Quantized
 quantize numBuckets EventAnalysis{..} = Quantized {
       quantTimes      = go Map.empty _events
     , quantThreadInfo = Map.map quantizeThreadInfo __threadInfo
+    , quantBucketSize = bucketSize
     }
   where
     go :: Map EventId (Map Int Double)
