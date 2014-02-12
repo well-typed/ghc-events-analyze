@@ -14,9 +14,10 @@ module GHC.RTS.Events.Analyze.Analysis (
   ) where
 
 import Prelude hiding (id, log)
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<|>))
 import Control.Lens ((%=), (.=), use)
 import Control.Monad (forM_, when)
+import Data.Maybe (fromMaybe)
 import Data.Map.Strict (Map)
 import GHC.RTS.Events hiding (events)
 import qualified Data.Map.Strict as Map
@@ -50,8 +51,16 @@ analyze Options{..} log =
   where
     analyzeEvent :: Event -> State EventAnalysis ()
     analyzeEvent (Event time spec) = case spec of
+        -- CapCreate/CapDelete are the "new" events (ghc >= 7.6)
+        -- Startup/Shutdown are older (to support older eventlogs)
+        CapCreate _cap             -> recordStartup  time
+        CapDelete _cap             -> recordShutdown time
+        Startup _numCaps           -> recordStartup  time
+        Shutdown                   -> recordShutdown time
+        -- Thread info
         CreateThread tid           -> recordThreadCreation tid time
         (finishThread -> Just tid) -> recordThreadFinish tid time
+        -- Start/end events
         ThreadLabel tid l          -> labelThread tid l
         (startId -> Just eid)      -> recordEventStart eid time
         (stopId  -> Just eid)      -> recordEventStop eid time
@@ -68,6 +77,14 @@ analyze Options{..} log =
     stopId EndGC                                            = Just $ EventGC
     stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ EventUser e
     stopId _                                                = Nothing
+
+-- We take the _first_ CapCreate to be the official startup time
+recordStartup :: Timestamp -> State EventAnalysis ()
+recordStartup time = startup %= (<|> Just time)
+
+-- We take the _last_ CapDelete to be the official shutdown tiem
+recordShutdown :: Timestamp -> State EventAnalysis ()
+recordShutdown time = shutdown .= Just time
 
 recordEventStart :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStart eid start = do
@@ -142,7 +159,9 @@ initialEventAnalysis = EventAnalysis {
     _events      = []
   , __threadInfo = Map.empty
   , _openEvents  = Map.empty
-  , eventTotals  = error "Computed at the end"
+  , eventTotals  = error "eventTotals computed at the end"
+  , _startup     = Nothing
+  , _shutdown    = Nothing
   }
 
 computeTotals :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp
@@ -219,18 +238,20 @@ quantize numBuckets EventAnalysis{..} = Quantized {
       () | b == startBucket && startBucket == endBucket ->
             t2d (end - start) / t2d bucketSize
          | b == startBucket ->
-            let bEnd = startTime + fromIntegral (b + 1) * bucketSize
-            in t2d (bEnd - start) / t2d bucketSize
+            t2d (bucketEnd b - start) / t2d bucketSize
          | b == endBucket ->
-            let bStart = startTime + fromIntegral b * bucketSize
-            in t2d (end - bStart) / t2d bucketSize
+            t2d (end - bucketStart b) / t2d bucketSize
          | otherwise ->
             1
 
     startTime, endTime, bucketSize :: Timestamp
-    startTime  = minimum $ map (\(_eid, start, _stop) -> start) _events
-    endTime    = maximum $ map (\(_eid, _start, stop) -> stop)  _events
+    startTime  = fromMaybe (error "_startup not set")  _startup
+    endTime    = fromMaybe (error "_shutdown not set") _shutdown
     bucketSize = (endTime - startTime) `div` fromIntegral numBuckets
+
+    bucketStart, bucketEnd :: Int -> Timestamp
+    bucketStart b = startTime + fromIntegral b * bucketSize
+    bucketEnd   b = bucketStart (b + 1)
 
     bucket :: Timestamp -> Int
     bucket t = fromIntegral ((t - startTime) `div` bucketSize)

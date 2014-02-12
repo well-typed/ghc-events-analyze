@@ -6,6 +6,8 @@ module GHC.RTS.Events.Analyze.Types (
   , events
   , threadInfo
   , openEvents
+  , startup
+  , shutdown
   , numThreads
   , Quantized(..)
   , showEventId
@@ -54,8 +56,9 @@ data Options = Options {
   }
   deriving Show
 
--- These fields are strict so that we don't build up chains of EventAnalysis
--- objects when we update it as we process the eventlog
+-- The fields that we use as "accumulators" in `analyze` are strict so that we
+-- don't build up chains of EventAnalysis objects when we update it as we
+-- process the eventlog
 data EventAnalysis = EventAnalysis {
     -- | Start and stop timestamps
     --
@@ -87,10 +90,16 @@ data EventAnalysis = EventAnalysis {
     -- separately for separate HECs). We therefore record for each open event
     -- how many start events we have seen, and hence how many ends we need to
     -- see before counting the event as finished.
-  , _openEvents :: Map EventId (Timestamp, Int)
+  , _openEvents :: !(Map EventId (Timestamp, Int))
 
-    -- | Total amount of time per event
+    -- | Total amount of time per event (non-strict)
   , eventTotals :: Map EventId Timestamp
+
+    -- | Timestamp of the Startup event
+  , _startup :: !(Maybe Timestamp)
+
+    -- | Timestamp of the Shutdown event
+  , _shutdown :: !(Maybe Timestamp)
   }
   deriving Show
 

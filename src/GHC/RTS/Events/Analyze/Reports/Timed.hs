@@ -27,6 +27,7 @@ type Report = [ReportFragment]
 data ReportFragment =
     ReportSection Title
   | ReportLine ReportLine
+  deriving Show
 
 data ReportLine = ReportLineData {
     lineHeader     :: String
@@ -34,6 +35,7 @@ data ReportLine = ReportLineData {
   , lineBackground :: Maybe (Int, Int)
   , lineValues     :: Map Int Double
   }
+  deriving Show
 
 {-------------------------------------------------------------------------------
   Report generation

@@ -27,12 +27,14 @@ type Report = [ReportFragment]
 data ReportFragment =
     ReportSection Title
   | ReportLine ReportLine
+  deriving Show
 
 data ReportLine = ReportLineData {
     lineHeader   :: String
   , lineEventIds :: [EventId]
   , lineTotal    :: Timestamp
   }
+  deriving Show
 
 {-------------------------------------------------------------------------------
   Report generation
