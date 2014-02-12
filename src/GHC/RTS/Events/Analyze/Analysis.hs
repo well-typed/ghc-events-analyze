@@ -17,9 +17,9 @@ import Prelude hiding (id, log)
 import Control.Applicative ((<$>))
 import Control.Lens ((%=), (.=), use)
 import Control.Monad (forM_, when)
-import Data.Map (Map)
+import Data.Map.Strict (Map)
 import GHC.RTS.Events hiding (events)
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 
 import GHC.RTS.Events.Analyze.Utils
 import GHC.RTS.Events.Analyze.StrictState (State, execState)
@@ -71,7 +71,7 @@ analyze Options{..} log =
 
 recordEventStart :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStart eid start = do
-    (oldValue, newOpen) <- Map.insertLookupWithKey' push eid (start, 1) <$> use openEvents
+    (oldValue, newOpen) <- Map.insertLookupWithKey push eid (start, 1) <$> use openEvents
     openEvents .= newOpen
     case (eid, oldValue) of
       -- Pretend user events stop on the _first_ StartGC
@@ -153,7 +153,7 @@ computeTotals = go Map.empty
        -> Map EventId Timestamp
     go !acc [] = acc
     go !acc ((eid, start, stop) : es) =
-      go (Map.insertWith' (+) eid (stop - start) acc) es
+      go (Map.insertWith (+) eid (stop - start) acc) es
 
 {-------------------------------------------------------------------------------
   Using EventAnalysis
