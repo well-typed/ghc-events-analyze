@@ -291,8 +291,10 @@ to the server handling different kinds of requests) and then running it through
 
 ![server with -I0.3](server-I0.3.timed.png)
 
-(This uses `ghc-events-analyze`'s `--filter` option to only show certain
-events/threads.) The labelled time periods now clearly show when the server is
+(`ghc-events-analyze`'s reports are fully customizable through a simple
+scripting language; many of the diagrams in this blogpost are generated using
+custom scripts in order to improve readability.) 
+The labelled time periods now clearly show when the server is
 handing requests of type A and B, and we see corresponding spikes in CPU
 activity in the server's main thread (with ID 6). Threads 4 and 5 handle
 communication between the client and server, and we see "blips" at the start
@@ -413,8 +415,8 @@ the thread scheduler events dramatically reduces the size of the eventlog,
 which in this case would have been too big otherwise. `ghc-events-analyze` does
 not rely on thread events being available, though you do then miss out on a
 per-thread breakdown of CPU activity. Moreover, since the creation of this
-diagram is relatively time consuming for large eventlogs, you can use the
-`--no-svg` option to omit it if you are interested only the totals and the
+diagram is relatively time consuming for large eventlogs, you can ask
+`ghc-events-analyze` to omit it if you are interested only the totals and the
 breakdown.
 
 Availability
