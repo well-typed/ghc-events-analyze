@@ -388,17 +388,24 @@ and to guide our subsequent improvements (like normal profiling would).
     W      2295049375ns    2.295s
     X      1734910406ns    1.735s
 
-We have replaced the real names from this program with labels `A`--`X`. We 
-can see that the top few most expensive variants of the function account for
-the majority of execution time. We could also see that the total of all these
-calls made up the vast majority of the whole program execution time (excluding
-GC). Thus we were able to focus our attention on the parts of the code where
-there was greatest opportunity to make imrovements.
+We have replaced the real names from this program with labels `A`--`X`. By
+comparing the overall execution time excluding GC, which we get from `+RTS -s`,
+we can see that the total of all these calls made up the vast majority of the
+program execution time. So this tells us that we don't need to worry about
+optimising the rest of the program and can concentrate on this family of
+functions. We can also see that the top few most expensive variants of the
+function account for the majority of that time. Thus we were able to focus our
+attention on the parts of the code where there was greatest opportunity to make
+imrovements.
 
 In this case the visualization of CPU usage over time does not tell us much
 extra:
 
 ![foo](foo.timed.png)
+
+except that our family of functions are indeed busy very consistently after an
+initial setup (at about 60% of CPU, with the garbage collector running at about
+25% CPU).
 
 It is worth noting that when we generated the eventlog for this application
 we selected only user events and GC events (`+RTS -l-agu -RTS`). Excluding
