@@ -107,6 +107,7 @@ selectDefaultOutput options@Options{..} =
     if noOutputSelected
       then options { optionsGenerateTotalsText = True
                    , optionsGenerateTimedSVG   = True
+                   , optionsGenerateTimedText  = True
                    }
       else options
   where
