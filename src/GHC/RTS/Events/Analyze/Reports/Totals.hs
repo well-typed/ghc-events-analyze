@@ -7,14 +7,16 @@ module GHC.RTS.Events.Analyze.Reports.Totals (
   ) where
 
 import Data.Function (on)
-import Data.List (sortBy)
+import Data.List (sortBy, intercalate)
 import GHC.RTS.Events (Timestamp)
 import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
+import Text.Printf (printf)
 import qualified Data.Map as Map
 
 import GHC.RTS.Events.Analyze.Analysis
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Script
+import GHC.RTS.Events.Analyze.Utils
 
 {-------------------------------------------------------------------------------
   Types
@@ -85,17 +87,25 @@ writeReport :: Report -> FilePath -> IO ()
 writeReport report path = withFile path WriteMode $ writeReport' report
 
 writeReport' :: Report -> Handle -> IO ()
-writeReport' report h = mapM_ writeFragment report
+writeReport' report h =
+      mapM_ writeLine
+    $ mapEithers id (renderTable (AlignLeft : repeat AlignRight))
+    $ map reportFragment report
   where
-    writeFragment :: ReportFragment -> IO ()
-    writeFragment (ReportSection title) = hPutStrLn h $ "\n" ++ title
-    writeFragment (ReportLine line)     = hPutStrLn h $ renderLine line
+    writeLine :: Either String [String] -> IO ()
+    writeLine (Left header) = hPutStrLn h $ "\n" ++ header
+    writeLine (Right cells) = hPutStrLn h $ intercalate "   " cells
 
-    renderLine :: ReportLine -> String
-    renderLine ReportLineData{..} = lineHeader ++ ": " ++ showTotal lineTotal
+    reportFragment :: ReportFragment -> Either String [String]
+    reportFragment (ReportSection title) = Left title
+    reportFragment (ReportLine line)     = Right (reportLine line)
 
-showTotal :: Timestamp -> String
-showTotal t = show t ++ "ns (" ++ show (toSec t) ++ "s)"
+    reportLine :: ReportLine -> [String]
+    reportLine ReportLineData{..} =
+      [ lineHeader
+      , printf "%dns"   $ lineTotal
+      , printf "%0.3fs" $ toSec lineTotal
+      ]
 
-toSec :: Timestamp -> Double
-toSec = (/ 1000000000) . fromInteger . toInteger
+    toSec :: Timestamp -> Double
+    toSec = (/ 1000000000) . fromInteger . toInteger

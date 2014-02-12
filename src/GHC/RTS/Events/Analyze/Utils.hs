@@ -1,14 +1,20 @@
 module GHC.RTS.Events.Analyze.Utils (
     throwLeft
   , throwLeftStr
-  , applyAll
   , insertWith
   , prefix
   , explode
-  , overwrite
+  , mapEithers
+  , unsparse
+  , Alignment(..)
+  , renderTable
   ) where
 
 import Control.Exception
+import Data.List (transpose)
+import Data.Either (partitionEithers)
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 throwLeft :: Exception e => IO (Either e a) -> IO a
 throwLeft act = act >>= \ea -> case ea of Left  e -> throwIO e
@@ -16,9 +22,6 @@ throwLeft act = act >>= \ea -> case ea of Left  e -> throwIO e
 
 throwLeftStr :: IO (Either String a) -> IO a
 throwLeftStr = throwLeft . fmap (either (Left . userError) Right)
-
-applyAll :: [a -> a] -> a -> a
-applyAll = foldr (.) id
 
 -- | Like `Map.insertWith`, but for associative lists
 --
@@ -52,16 +55,52 @@ prefix _      []                 = Nothing
 prefix (x:xs) (y:ys) | x == y    = prefix xs ys
                      | otherwise = Nothing
 
--- | Overwrite part of a list with another
---
--- > overwrite 0 "abc" ""       == "abc"
--- > overwrite 0 "abc" "defghi" == "abcghi"
--- > overwrite 2 "abc" "defghi" == "deabci"
--- > overwrite 2 "abc" "def"    == "deabc"
--- > overwrite 4 "abc" "def"    == "def abc"
-overwrite :: Int -> String -> String -> String
-overwrite _ []     ys     = ys
-overwrite 0 xs     []     = xs
-overwrite 0 (x:xs) (_:ys) = x : overwrite 0 xs ys
-overwrite n xs     []     = ' ' : overwrite (n - 1) xs []
-overwrite n xs     (y:ys) = y   : overwrite (n - 1) xs ys
+mapEithers :: forall a b c d.
+              ([a] -> [c])
+           -> ([b] -> [d])
+           -> [Either a b]
+           -> [Either c d]
+mapEithers f g eithers = rebuild eithers (f lefts) (g rights)
+  where
+    (lefts, rights) = partitionEithers eithers
+
+    rebuild :: [Either a b] -> [c] -> [d] -> [Either c d]
+    rebuild []             []       []       = []
+    rebuild (Left  _ : es) (x : xs)      ys  = Left  x : rebuild es xs ys
+    rebuild (Right _ : es)      xs  (y : ys) = Right y : rebuild es xs ys
+    rebuild _ _ _ = error "mapEithers: lengths changed"
+
+-- | Turn a sparse representation of a list into a regular list, using
+-- a default value for the blanks
+unsparse :: forall a. a -> Map Int a -> [a]
+unsparse blank = go 0 . Map.toList
+  where
+    go :: Int -> [(Int, a)] -> [a]
+    go _ []            = []
+    go n ((m, a) : as) = replicate (m - n) blank ++ a : go (m + 1) as
+
+-- | Alignment options for `renderTable`
+data Alignment = AlignLeft | AlignRight
+
+-- | "Typeset" a table
+renderTable :: [Alignment] -> [[String]] -> [[String]]
+renderTable aligns rows = transpose paddedColumns
+  where
+    columns :: [[String]]
+    columns = transpose rows
+
+    columnWidths :: [Int]
+    columnWidths = map (maximum . map length) columns
+
+    paddedColumns :: [[String]]
+    paddedColumns = map padColumn (zip3 aligns columnWidths columns)
+
+    padColumn :: (Alignment, Int, [String]) -> [String]
+    padColumn (align, width, column) = map (padCell align width) column
+
+    padCell :: Alignment -> Int -> String -> String
+    padCell align width cell =
+      let padding = replicate (width - length cell) ' '
+      in case align of
+           AlignLeft  -> cell ++ padding
+           AlignRight -> padding ++ cell

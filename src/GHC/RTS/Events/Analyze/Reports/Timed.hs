@@ -7,9 +7,8 @@ module GHC.RTS.Events.Analyze.Reports.Timed (
   ) where
 
 import Data.Function (on)
-import Data.List (sortBy)
+import Data.List (sortBy, intercalate)
 import Data.Map (Map)
-import Data.Maybe (catMaybes)
 import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
 import qualified Data.Map as Map
@@ -108,22 +107,22 @@ writeReport :: Report -> FilePath -> IO ()
 writeReport report path = withFile path WriteMode $ writeReport' report
 
 writeReport' :: Report -> Handle -> IO ()
-writeReport' report h = mapM_ writeFragment report
+writeReport' report h =
+      mapM_ writeLine
+    $ mapEithers id (renderTable (AlignLeft : repeat AlignRight))
+    $ map reportFragment report
   where
-    writeFragment :: ReportFragment -> IO ()
-    writeFragment (ReportSection title) = hPutStrLn h $ "\n" ++ title
-    writeFragment (ReportLine line)     = hPutStrLn h $ renderLine line
+    writeLine :: Either String [String] -> IO ()
+    writeLine (Left header) = hPutStrLn h $ "\n" ++ header
+    writeLine (Right cells) = hPutStrLn h $ intercalate " " cells
 
-    renderLine :: ReportLine -> String
-    renderLine ReportLineData{..} =
-      applyAll (map showValue $ Map.toList lineValues) lineHeader
+    reportFragment :: ReportFragment -> Either String [String]
+    reportFragment (ReportSection title) = Left title
+    reportFragment (ReportLine line)     = Right (reportLine line)
 
-    showValue :: (Int, Double) -> String -> String
-    showValue (b, q) = overwrite (headerWidth + 1 + b * 6) (printf "%0.2f" q)
+    reportLine :: ReportLine -> [String]
+    reportLine ReportLineData{..} =
+      lineHeader : map showValue (unsparse 0 lineValues)
 
-    headerWidth :: Int
-    headerWidth = maximum . catMaybes . map aux $ report
-      where
-        aux :: ReportFragment -> Maybe Int
-        aux (ReportSection _) = Nothing
-        aux (ReportLine line) = Just . length . lineHeader $ line
+    showValue :: Double -> String
+    showValue = printf "%0.2f"
