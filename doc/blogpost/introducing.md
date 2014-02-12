@@ -75,8 +75,10 @@ Some points to note:
    as darkness then a thread doing nothing would be visually indistinguishable
    from a thread doing just a print, say.
 3. We can see that initially both threads are equally busy (the scheduler is
-   assigning approximately 48% CPU time to both), until the first thread completes
-   and the second thread gets 97% of CPU. 
+   assigning approximately 48% CPU time to both), until the first thread
+   completes and the second thread gets 97% of CPU (`ghc-events-analyze` also
+   generates the same report in textual form with precise values for each
+   block). 
 4. The thread lifetime of each thread is also immediately clear.
 
 Instrumentation
@@ -358,7 +360,7 @@ time didn't tell us much extra:
 ![foo](foo.timed.png)
 
 except that `foo` is indeed busy very consistently after an initial setup (at
-about 60% of CPU).
+about 60% of CPU, with the garbage collector running at about 25% CPU).
 
 Availability
 ------------
