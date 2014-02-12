@@ -1,13 +1,31 @@
 name:                ghc-events-analyze
 version:             0.2.0
 synopsis:            Analyze and visualize event logs 
--- description:         
+description:         ghc-events-analyze is a simple Haskell profiling tool that
+                     uses GHC's eventlog system. It helps with some profiling
+                     use cases that are not covered by the existing GHC
+                     profiling modes or tools. It has two major features:
+                     .
+                     1. While ThreadScope shows CPU activity across all your
+                     cores, ghc-events-analyze shows CPU activity across all
+                     your Haskell threads.
+                     .
+                     2. It lets you label periods of time during program
+                     execution (by instrumenting your code with special trace
+                     calls) and then lets you visualize those time periods or
+                     get statistics on them.
+                     .
+                     It is very useful for profiling code when ghc's normal
+                     profiling mode is not available, or when using profiling
+                     mode would perturb the code too much. It is also useful
+                     when you want time-profiling information with a breakdown
+                     over time rather than totals for the whole run. 
 license:             BSD3
 license-file:        LICENSE
 author:              Edsko de Vries, Duncan Coutts, Mikolaj Konarski
 maintainer:          edsko@well-typed.com
 copyright:           2013-2014 Well-Typed LLP
-category:            Development
+category:            Development, Profiling, Trace
 build-type:          Simple
 -- extra-source-files:  
 cabal-version:       >=1.10
@@ -29,7 +47,7 @@ executable ghc-events-analyze
                        GHC.RTS.Events.Analyze.Reports.Timed
                        GHC.RTS.Events.Analyze.Reports.Timed.SVG
 
-  build-depends:       base                 >= 4.5  && < 4.7,
+  build-depends:       base                 >= 4.5  && < 4.8,
                        ghc-events           >= 0.4  && < 0.5,
                        optparse-applicative >= 0.7  && < 0.8,
                        diagrams-lib         >= 1.0  && < 1.1,
