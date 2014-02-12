@@ -51,6 +51,6 @@ clean:
 	rm -f ex*.eventlog ex*.svg
 	rm -f *.o *.hi
 	rm -f ex0 ex1 
-	rm -f *.totals
+	rm -f *.totals.txt
 
 # vi:set noexpandtab:
