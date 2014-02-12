@@ -1,8 +1,8 @@
 .PHONY: svgs
 svgs: eventlogs
-	ghc-events-analyze -b 50 ex0-NT.eventlog
-	ghc-events-analyze -b 50 ex0-N1.eventlog
-	ghc-events-analyze -b 50 ex0-N2.eventlog
+	ghc-events-analyze -b 50 --script-timed nouser.script ex0-NT.eventlog
+	ghc-events-analyze -b 50 --script-timed nouser.script ex0-N1.eventlog
+	ghc-events-analyze -b 50 --script-timed nouser.script ex0-N2.eventlog
 	ghc-events-analyze -b 50 ex1-NT.eventlog
 	ghc-events-analyze -b 50 ex1-N1.eventlog
 	ghc-events-analyze -b 50 ex1-N2.eventlog
@@ -51,6 +51,6 @@ clean:
 	rm -f ex*.eventlog ex*.svg
 	rm -f *.o *.hi
 	rm -f ex0 ex1 
-	rm -f *.totals.txt
+	rm -f *.totals.txt *.timed.txt
 
 # vi:set noexpandtab:
