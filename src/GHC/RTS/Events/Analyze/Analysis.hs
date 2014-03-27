@@ -50,7 +50,9 @@ analyze Options{..} log =
     in analysis { eventTotals = computeTotals (_events analysis) }
   where
     analyzeEvent :: Event -> State EventAnalysis ()
-    analyzeEvent (Event time spec) = case spec of
+    analyzeEvent (Event time spec) = do
+      recordShutdown time
+      case spec of
         -- CapCreate/CapDelete are the "new" events (ghc >= 7.6)
         -- Startup/Shutdown are older (to support older eventlogs)
         CapCreate _cap             -> recordStartup  time
@@ -82,9 +84,9 @@ analyze Options{..} log =
 recordStartup :: Timestamp -> State EventAnalysis ()
 recordStartup time = startup %= (<|> Just time)
 
--- We take the _last_ CapDelete to be the official shutdown tiem
+-- We take the last time of any event to be the official shutdown time
 recordShutdown :: Timestamp -> State EventAnalysis ()
-recordShutdown time = shutdown .= Just time
+recordShutdown time = shutdown %= (Just . maybe time (max time))
 
 recordEventStart :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStart eid start = do
