@@ -38,14 +38,14 @@ renderReport Options{optionsNumBuckets}
       padHeader (2 * blockSize) title
     renderSVGFragment (SVGLine header blocks) =
       -- Add empty block at the start so that the whole thing doesn't shift up
-      padHeader blockSize header ||| (blocks <> (block 0 # D.lw 0))
+      padHeader blockSize header ||| (blocks <> (block 0 # D.lw D.zeroV))
     renderSVGFragment SVGTimeline =
       padHeader blockSize mempty ||| timeline optionsNumBuckets quantBucketSize
 
     padHeader :: Double -> D -> D
     padHeader height h =
          D.translateX (0.5 * blockSize) h
-      <> D.rect headerWidth height # D.alignL # D.lw 0
+      <> D.rect headerWidth height # D.alignL # D.lw D.zeroV
 
     headerWidth :: Double
     headerWidth = blockSize -- extra padding
@@ -136,9 +136,9 @@ timeline numBuckets bucketSize =
             ]
   where
     timelineBlock b
-      | b `rem`5 == 0 = D.strokeLine bigLine   # D.lw 0.5
+      | b `rem`5 == 0 = D.strokeLine bigLine   # D.lwG 0.5 
                      <> (renderText (bucketTime b) 9 # D.translateY 8)
-      | otherwise     = D.strokeLine smallLine # D.lw 0.5 # D.translateY 1
+      | otherwise     = D.strokeLine smallLine # D.lwG 0.5 # D.translateY 1
 
     bucketTime :: Int -> String
     bucketTime b = let timeNs :: Timestamp
