@@ -38,14 +38,14 @@ renderReport Options{optionsNumBuckets}
       padHeader (2 * blockSize) title
     renderSVGFragment (SVGLine header blocks) =
       -- Add empty block at the start so that the whole thing doesn't shift up
-      padHeader blockSize header ||| (blocks <> (block 0 # D.lw D.zeroV))
+      padHeader blockSize header ||| (blocks <> (block 0 # D.lw D.none))
     renderSVGFragment SVGTimeline =
       padHeader blockSize mempty ||| timeline optionsNumBuckets quantBucketSize
 
     padHeader :: Double -> D -> D
     padHeader height h =
          D.translateX (0.5 * blockSize) h
-      <> D.rect headerWidth height # D.alignL # D.lw D.zeroV
+      <> D.rect headerWidth height # D.alignL # D.lw D.none
 
     headerWidth :: Double
     headerWidth = blockSize -- extra padding
@@ -94,7 +94,8 @@ bgBlocks (Just (fr, to)) = mconcat [
 
 renderText :: String -> Double -> D
 renderText str size =
-    D.stroke (F.textSVG' (textOpts str size)) # D.fc D.black # D.lc D.black # D.alignL
+    D.stroke (F.textSVG' (textOpts str size)) # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
+
 
 textOpts :: String -> Double -> TextOpts
 textOpts str size =
@@ -124,7 +125,7 @@ qOpacity q = 0.1 + q * 0.9
 
 block :: Int -> D
 block i = D.translateX (blockSize * fromIntegral i)
-        $ D.rect blockSize blockSize
+        $ D.rect blockSize blockSize # D.lw (D.Global 0.01)
 
 blockSize :: Double
 blockSize = 10
@@ -136,9 +137,9 @@ timeline numBuckets bucketSize =
             ]
   where
     timelineBlock b
-      | b `rem`5 == 0 = D.strokeLine bigLine   # D.lwG 0.5 
+      | b `rem`5 == 0 = D.strokeLine bigLine   # D.lw (D.Global 0.5)
                      <> (renderText (bucketTime b) 9 # D.translateY 8)
-      | otherwise     = D.strokeLine smallLine # D.lwG 0.5 # D.translateY 1
+      | otherwise     = D.strokeLine smallLine # D.lw (D.Global 0.5) # D.translateY 1
 
     bucketTime :: Int -> String
     bucketTime b = let timeNs :: Timestamp
