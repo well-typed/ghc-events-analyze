@@ -1,6 +1,6 @@
 name:                ghc-events-analyze
 version:             0.2.0
-synopsis:            Analyze and visualize event logs 
+synopsis:            Analyze and visualize event logs
 description:         ghc-events-analyze is a simple Haskell profiling tool that
                      uses GHC's eventlog system. It helps with some profiling
                      use cases that are not covered by the existing GHC
@@ -19,7 +19,7 @@ description:         ghc-events-analyze is a simple Haskell profiling tool that
                      profiling mode is not available, or when using profiling
                      mode would perturb the code too much. It is also useful
                      when you want time-profiling information with a breakdown
-                     over time rather than totals for the whole run. 
+                     over time rather than totals for the whole run.
 license:             BSD3
 license-file:        LICENSE
 author:              Edsko de Vries, Duncan Coutts, Mikolaj Konarski
@@ -31,10 +31,10 @@ extra-source-files:  ChangeLog
 cabal-version:       >=1.10
 
 source-repository head
-  type: git 
-  location: https://github.com/edsko/ghc-events-analyze 
+  type: git
+  location: https://github.com/edsko/ghc-events-analyze
 
-executable ghc-events-analyze 
+executable ghc-events-analyze
   main-is:             GHC/RTS/Events/Analyze.hs
   other-modules:       GHC.RTS.Events.Analyze.Analysis
                        GHC.RTS.Events.Analyze.Options
@@ -49,7 +49,7 @@ executable ghc-events-analyze
 
   build-depends:       base                 >= 4.5  && < 4.8,
                        ghc-events           >= 0.4  && < 0.5,
-                       optparse-applicative >= 0.7  && < 0.9,
+                       optparse-applicative >= 0.7  && < 0.10,
                        diagrams-lib         >= 1.2  && < 1.3,
                        diagrams-svg         >= 1.1  && < 1.3,
                        SVGFonts             >= 1.4  && < 1.5,
