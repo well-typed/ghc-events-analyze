@@ -86,7 +86,8 @@ recordStartup time = startup %= (<|> Just time)
 
 -- We take the last time of any event to be the official shutdown time
 recordShutdown :: Timestamp -> State EventAnalysis ()
-recordShutdown time = shutdown %= (Just . maybe time (max time))
+recordShutdown time =
+    shutdown %= (\prevt'm -> let newtime = maybe time (max time) prevt'm in newtime `seq` Just newtime)
 
 recordEventStart :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStart eid start = do
