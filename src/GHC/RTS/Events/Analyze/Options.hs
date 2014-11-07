@@ -43,7 +43,7 @@ parserOptions =
                   <> metavar "INT"
                   <> help "Use INT buckets for quantization."
                   <> showDefault
-                  <> value 100
+                  <> value 1000
                    )
     <*> strOption  ( long "start"
                   <> metavar "STR"

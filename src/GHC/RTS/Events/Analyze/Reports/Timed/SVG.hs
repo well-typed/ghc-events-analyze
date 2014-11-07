@@ -124,22 +124,32 @@ qOpacity 0 = 0
 qOpacity q = 0.3 + q * 0.7
 
 block :: Int -> D
-block i = D.translateX (blockSize * fromIntegral i)
-        $ D.rect blockSize blockSize # D.lw (D.Global 0.01)
+block i = D.translateX (blockWidth * fromIntegral i)
+        $ D.rect blockWidth blockHeight # D.lw D.none
 
 blockSize :: Double
-blockSize = 10
+blockSize = blockHeight
+
+blockWidth :: Double
+blockWidth = 2
+
+blockHeight :: Double
+blockHeight = 14
 
 timeline :: Int -> Timestamp -> D
 timeline numBuckets bucketSize =
-    mconcat [ timelineBlock b # D.translateX (fromIntegral b * blockSize)
+    mconcat [ timelineBlock b # D.translateX (fromIntegral b * blockWidth)
             | b <- [0 .. numBuckets - 1]
+            , b `mod` blockMod == 0
             ]
   where
+    blockMod = 10 `div` (round blockWidth)
     timelineBlock b
-      | b `rem`5 == 0 = D.strokeLine bigLine   # D.lw (D.Global 0.5)
-                     <> (renderText (bucketTime b) 9 # D.translateY 8)
-      | otherwise     = D.strokeLine smallLine # D.lw (D.Global 0.5) # D.translateY 1
+      | b `rem` (5 * blockMod) == 0
+          = D.strokeLine bigLine   # D.lw (D.Local 0.5)
+          <> (renderText (bucketTime b) blockHeight # D.translateY (blockHeight - 2))
+      | otherwise
+          = D.strokeLine smallLine # D.lw (D.Local 0.5) # D.translateY 1
 
     bucketTime :: Int -> String
     bucketTime b = let timeNs :: Timestamp
@@ -149,8 +159,8 @@ timeline numBuckets bucketSize =
                        timeMS = fromIntegral timeNs / 1000000
                    in printf "%0.1fms" timeMS
 
-    bigLine   = mkLine [(0, 4), (blockSize, 0)]
-    smallLine = mkLine [(0, 3), (blockSize, 0)]
+    bigLine   = mkLine [(0, 4), (10, 0)]
+    smallLine = mkLine [(0, 3), (10, 0)]
     mkLine    = D.fromSegments . map (D.straight . D.r2)
 
 -- copied straight out of export list for Data.Colour.Names
