@@ -65,7 +65,7 @@ createReport analysis Quantized{..} = concatMap go
     -- For threads we draw a background showing the thread's lifetime
     background :: EventId -> Maybe (Int, Int)
     background EventGC           = Nothing
-    background (EventUser _)     = Nothing
+    background (EventUser _ _)   = Nothing
     background (EventThread tid) =
       case Map.lookup tid quantThreadInfo of
         Just (start, stop, _) -> Just (start, stop)

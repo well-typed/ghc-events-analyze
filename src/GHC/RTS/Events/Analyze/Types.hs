@@ -10,6 +10,7 @@ module GHC.RTS.Events.Analyze.Types (
   , shutdown
   , numThreads
   , Quantized(..)
+  , GroupId
   , showEventId
   , isUserEvent
   , isThreadEvent
@@ -35,11 +36,13 @@ data EventId =
     -- > traceEventIO "START <label>"
     -- > ...
     -- > traceEventIO "STOP <label>"
-  | EventUser String
+  | EventUser String GroupId
 
     -- | Threads
   | EventThread ThreadId
   deriving (Eq, Ord, Show)
+
+type GroupId = Int
 
 -- | Command line options
 data Options = Options {
@@ -135,13 +138,13 @@ data Quantized = Quantized {
 -- `quantThreadInfo` from `Quantized`).
 showEventId :: Map ThreadId (a, a, String) -> EventId -> String
 showEventId _     EventGC          = "GC"
-showEventId _    (EventUser event) = event
+showEventId _    (EventUser event _) = event
 showEventId info (EventThread tid) = case Map.lookup tid info of
                                        Just (_, _, l) -> l
                                        Nothing        -> show tid
 
 isUserEvent :: EventId -> Bool
-isUserEvent (EventUser _) = True
+isUserEvent (EventUser{}) = True
 isUserEvent _             = False
 
 isThreadEvent :: EventId -> Bool

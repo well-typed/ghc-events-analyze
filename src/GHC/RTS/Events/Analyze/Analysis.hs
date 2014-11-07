@@ -17,6 +17,7 @@ import Prelude hiding (id, log)
 import Control.Applicative ((<$>), (<|>))
 import Control.Lens ((%=), (.=), use)
 import Control.Monad (forM_, when)
+import Data.Char (isSpace, isDigit)
 import Data.Maybe (fromMaybe)
 import Data.Map.Strict (Map)
 import GHC.RTS.Events hiding (events)
@@ -71,13 +72,13 @@ analyze Options{..} log =
     startId :: EventInfo -> Maybe EventId
     startId (RunThread tid)                                   = Just $ EventThread tid
     startId StartGC                                           = Just $ EventGC
-    startId (UserMessage (prefix optionsUserStart -> Just e)) = Just $ EventUser e
+    startId (UserMessage (prefix optionsUserStart -> Just e)) = Just $ parseGroupId e
     startId _                                                 = Nothing
 
     stopId :: EventInfo -> Maybe EventId
     stopId (StopThread tid _)                               = Just $ EventThread tid
     stopId EndGC                                            = Just $ EventGC
-    stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ EventUser e
+    stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ parseGroupId e
     stopId _                                                = Nothing
 
 -- We take the _first_ CapCreate to be the official startup time
@@ -88,6 +89,12 @@ recordStartup time = startup %= (<|> Just time)
 recordShutdown :: Timestamp -> State EventAnalysis ()
 recordShutdown time =
     shutdown %= (\prevt'm -> let newtime = maybe time (max time) prevt'm in newtime `seq` Just newtime)
+
+parseGroupId :: String -> EventId
+parseGroupId s = case ds of
+                    [] -> EventUser s 0
+                    _  -> EventUser (dropWhile isSpace cs) (read ds)
+  where (ds,cs) = span isDigit s
 
 recordEventStart :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStart eid start = do
@@ -124,7 +131,7 @@ simulateUserEventsStopAt stop = do
     forM_ nowOpen $ \(eid, (start, _count)) -> case eid of
       EventGC       -> return ()
       EventThread _ -> return ()
-      EventUser _   -> events %= (:) (eid, start, stop)
+      EventUser _ _ -> events %= (:) (eid, start, stop)
 
 simulateUserEventsStartAt :: Timestamp -> State EventAnalysis ()
 simulateUserEventsStartAt newStart = openEvents %= Map.mapWithKey updUserEvent
@@ -133,7 +140,7 @@ simulateUserEventsStartAt newStart = openEvents %= Map.mapWithKey updUserEvent
     updUserEvent eid (oldStart, count) = case eid of
       EventGC       -> (oldStart, count)
       EventThread _ -> (oldStart, count)
-      EventUser _   -> (newStart, count)
+      EventUser _ _ -> (newStart, count)
 
 recordThreadCreation :: ThreadId -> Timestamp -> State EventAnalysis ()
 recordThreadCreation tid start =

@@ -81,7 +81,7 @@ lineColor = eventColor . head . lineEventIds
 
 eventColor :: EventId -> Colour Double
 eventColor EventGC         = D.red
-eventColor (EventUser _)   = D.green
+eventColor (EventUser _ _) = D.green
 eventColor (EventThread _) = D.blue
 
 

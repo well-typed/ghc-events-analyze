@@ -16,7 +16,7 @@ module GHC.RTS.Events.Analyze.Script (
   , scriptQQ
   ) where
 
-import Control.Applicative ((<$>), (<*>), (*>), (<*))
+import Control.Applicative ((<$>), (<*>), (*>), (<*), pure)
 import Data.List (intercalate)
 import Data.Word (Word32)
 import Language.Haskell.TH.Lift (deriveLiftMany)
@@ -153,7 +153,7 @@ whiteSpace    = P.whiteSpace    lexer
 type Parser a = Parsec String () a
 
 pEventId :: Parser EventId
-pEventId =  (EventUser     <$> stringLiteral <?> "user event")
+pEventId =  (EventUser     <$> stringLiteral <*> pure 0 <?> "user event")
         <|> (EventThread   <$> pThreadId     <?> "thread event")
         <|> (const EventGC <$> reserved "GC")
   where
@@ -221,7 +221,7 @@ unparseCommand (Sum f title)   = ["sum " ++ unparseFilter f ++ " " ++ unparseTit
 
 unparseEventId :: EventId -> String
 unparseEventId EventGC           = "GC"
-unparseEventId (EventUser e)     = e
+unparseEventId (EventUser e _)   = e
 unparseEventId (EventThread tid) = show tid
 
 unparseTitle :: Maybe Title -> String
