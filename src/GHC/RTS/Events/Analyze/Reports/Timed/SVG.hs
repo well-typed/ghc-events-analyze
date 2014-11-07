@@ -28,19 +28,25 @@ renderReport Options{optionsNumBuckets}
              report = (D.sizeSpec2D rendered, rendered)
   where
     rendered :: D
-    rendered = D.vcat $ map renderSVGFragment (SVGTimeline : fragments)
+    rendered = D.vcat $ map (uncurry renderSVGFragment)
+                      $ zip (cycle [D.white, D.ghostwhite])
+                            (SVGTimeline : fragments)
 
     fragments :: [SVGFragment]
     fragments = map renderFragment $ zip report (cycle allColors)
 
-    renderSVGFragment :: SVGFragment -> D
-    renderSVGFragment (SVGSection title) =
+    renderSVGFragment :: Colour Double -> SVGFragment -> D
+    renderSVGFragment _ (SVGSection title) =
       padHeader (2 * blockSize) title
-    renderSVGFragment (SVGLine header blocks) =
+    renderSVGFragment bg (SVGLine header blocks) =
       -- Add empty block at the start so that the whole thing doesn't shift up
-      padHeader blockSize header ||| (blocks <> (block 0 # D.lw D.none))
-    renderSVGFragment SVGTimeline =
+      (padHeader blockSize header ||| (blocks <> (block 0 # D.lw D.none)))
+        `D.atop`
+      (D.rect lineWidth blockHeight # D.alignL # D.fc bg # D.lw D.none)
+    renderSVGFragment _ SVGTimeline =
       padHeader blockSize mempty ||| timeline optionsNumBuckets quantBucketSize
+
+    lineWidth = headerWidth + fromIntegral optionsNumBuckets * blockWidth
 
     padHeader :: Double -> D -> D
     padHeader height h =
