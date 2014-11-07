@@ -121,7 +121,7 @@ textOpts str size =
 -- visually see anyway.
 qOpacity :: Double -> Double
 qOpacity 0 = 0
-qOpacity q = 0.1 + q * 0.9
+qOpacity q = 0.3 + q * 0.7
 
 block :: Int -> D
 block i = D.translateX (blockSize * fromIntegral i)
