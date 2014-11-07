@@ -33,6 +33,11 @@ parserOptions =
     <*> switch     ( long "totals"
                   <> help "Generate totals report"
                    )
+    <*> strOption  ( long "window"
+                  <> metavar "NAME"
+                  <> help "Events named NAME act to mark bounds of visualization window."
+                  <> value ""
+                   )
     <*> option auto ( long "buckets"
                   <> short 'b'
                   <> metavar "INT"

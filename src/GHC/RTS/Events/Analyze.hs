@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Applicative ((<$>))
-import Control.Monad (when)
+import Control.Monad (when, forM_)
 import System.FilePath (replaceExtension, takeFileName)
 import Text.Parsec.String (parseFromFile)
 
@@ -16,14 +16,10 @@ import GHC.RTS.Events.Analyze.Script.Standard
 main :: IO ()
 main = do
     options@Options{..} <- parseOptions
-    analysis            <- analyze options <$> readEventLog optionsInput
+    analyses            <- analyze options <$> readEventLog optionsInput
 
     (timedScriptName,  timedScript)  <- getScript optionsScriptTimed  defaultScriptTimed
     (totalsScriptName, totalsScript) <- getScript optionsScriptTotals defaultScriptTotals
-
-    let quantized = quantize optionsNumBuckets analysis
-        totals    = Totals.createReport analysis totalsScript
-        timed     = Timed.createReport analysis quantized timedScript
 
     let writeReport :: Bool
                     -> String
@@ -38,17 +34,23 @@ main = do
           mkReport output
           putStrLn $ "Generated " ++ output ++ " using " ++ scriptName
 
-    writeReport optionsGenerateTotalsText
-                totalsScriptName
-                "totals.txt" $ Totals.writeReport totals
+    forM_ (zip [(0::Int)..] analyses) $ \ (i,analysis) -> do
 
-    writeReport optionsGenerateTimedSVG
-                timedScriptName
-                "timed.svg" $ TimedSVG.writeReport options quantized timed
+      let quantized = quantize optionsNumBuckets analysis
+          totals    = Totals.createReport analysis totalsScript
+          timed     = Timed.createReport analysis quantized timedScript
 
-    writeReport optionsGenerateTimedText
-                timedScriptName
-                "timed.txt" $ Timed.writeReport timed
+      writeReport optionsGenerateTotalsText
+                  totalsScriptName
+                    (show i ++ ".totals.txt") $ Totals.writeReport totals
+
+      writeReport optionsGenerateTimedSVG
+                  timedScriptName
+                    (show i ++ ".timed.svg") $ TimedSVG.writeReport options quantized timed
+
+      writeReport optionsGenerateTimedText
+                  timedScriptName
+                    (show i ++ ".timed.txt") $ Timed.writeReport timed
 
 getScript :: FilePath -> Script -> IO (String, Script)
 getScript ""   def = return ("default script", def)

@@ -9,6 +9,7 @@ module GHC.RTS.Events.Analyze.Types (
   , startup
   , shutdown
   , numThreads
+  , inWindow
   , Quantized(..)
   , GroupId
   , showEventId
@@ -49,6 +50,7 @@ data Options = Options {
     optionsGenerateTimedSVG   :: Bool
   , optionsGenerateTimedText  :: Bool
   , optionsGenerateTotalsText :: Bool
+  , optionsWindowEvent        :: String
   , optionsNumBuckets         :: Int
   , optionsUserStart          :: String
   , optionsUserStop           :: String
@@ -104,6 +106,7 @@ data EventAnalysis = EventAnalysis {
 
     -- | Timestamp of the Shutdown event
   , _shutdown :: !(Maybe Timestamp)
+  , _inWindow :: Bool
   }
   deriving Show
 

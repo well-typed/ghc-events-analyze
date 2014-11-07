@@ -74,8 +74,7 @@ createReport analysis Quantized{..} = concatMap go
     quantTimesForEvent :: EventId -> Map Int Double
     quantTimesForEvent eid =
       case Map.lookup eid quantTimes of
-        Nothing    -> error $ "Invalid event ID " ++ show eid ++ ". "
-                           ++ "Valid IDs are " ++ show (Map.keys quantTimes)
+        Nothing    -> Map.empty -- this event didn't happen in the window
         Just times -> times
 
     sorted :: Maybe EventSort -> [(EventId, a)] -> [(EventId, a)]

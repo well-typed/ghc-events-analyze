@@ -13,7 +13,7 @@ module GHC.RTS.Events.Analyze.Analysis (
   , quantize
   ) where
 
-import Prelude hiding (id, log)
+import Prelude hiding (log)
 import Control.Applicative ((<$>), (<|>))
 import Control.Lens ((%=), (.=), use)
 import Control.Monad (forM_, when)
@@ -24,7 +24,7 @@ import GHC.RTS.Events hiding (events)
 import qualified Data.Map.Strict as Map
 
 import GHC.RTS.Events.Analyze.Utils
-import GHC.RTS.Events.Analyze.StrictState (State, execState)
+import GHC.RTS.Events.Analyze.StrictState (State, execState, put, modify, get, runState)
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Script
 
@@ -44,30 +44,46 @@ readEventLog  = throwLeftStr . readEventLogFromFile
   the analysis combines such events.
 -------------------------------------------------------------------------------}
 
-analyze :: Options -> EventLog -> EventAnalysis
-analyze Options{..} log =
-    let analysis = execState (mapM_ analyzeEvent (sortedEvents log))
-                             initialEventAnalysis
-    in analysis { eventTotals = computeTotals (_events analysis)
-                , eventStarts = computeStarts (_events analysis) }
+analyze :: Options -> EventLog -> [EventAnalysis]
+analyze opts@Options{..} log =
+    let analyses = execState (mapM_ analyzeEvent (sortedEvents log))
+                             [initialEventAnalysis opts]
+    in reverse
+       [ analysis { eventTotals = computeTotals (_events analysis)
+                  , eventStarts = computeStarts (_events analysis) }
+       | analysis <- (if length analyses > 1 then drop 1 else id) analyses ]
   where
-    analyzeEvent :: Event -> State EventAnalysis ()
+    isWindowEvent :: EventId -> Bool
+    isWindowEvent = case optionsWindowEvent of
+                      [] -> const False
+                      nm -> (== parseGroupId nm)
+
+    analyzeEvent :: Event -> State [EventAnalysis] ()
     analyzeEvent (Event time spec) = do
-      recordShutdown time
+      cur $ recordShutdown time
       case spec of
         -- CapCreate/CapDelete are the "new" events (ghc >= 7.6)
         -- Startup/Shutdown are older (to support older eventlogs)
-        CapCreate _cap             -> recordStartup  time
-        CapDelete _cap             -> recordShutdown time
-        Startup _numCaps           -> recordStartup  time
-        Shutdown                   -> recordShutdown time
+        CapCreate _cap             -> cur $ recordStartup  time
+        CapDelete _cap             -> cur $ recordShutdown time
+        Startup _numCaps           -> cur $ recordStartup  time
+        Shutdown                   -> cur $ recordShutdown time
         -- Thread info
-        CreateThread tid           -> recordThreadCreation tid time
-        (finishThread -> Just tid) -> recordThreadFinish tid time
+        CreateThread tid           -> cur $ recordThreadCreation tid time
+        (finishThread -> Just tid) -> cur $ recordThreadFinish tid time
         -- Start/end events
-        ThreadLabel tid l          -> labelThread tid l
-        (startId -> Just eid)      -> recordEventStart eid time
-        (stopId  -> Just eid)      -> recordEventStop eid time
+        ThreadLabel tid l          -> cur $ labelThread tid l
+        (startId -> Just eid)      -> cur $ do
+                                        ifInWindow $ recordEventStart eid time
+                                        when (isWindowEvent eid) $ do
+                                          startup .= Just time
+                                          inWindow .= True
+        (stopId  -> Just eid)      -> do when (isWindowEvent eid) $ do
+                                           cur $ do
+                                             inWindow .= False
+                                             recordShutdown time
+                                           modify (initialEventAnalysis opts :)
+                                         cur $ ifInWindow $ recordEventStop eid time
         _                          -> return ()
 
     startId :: EventInfo -> Maybe EventId
@@ -81,6 +97,17 @@ analyze Options{..} log =
     stopId EndGC                                            = Just $ EventGC
     stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ parseGroupId e
     stopId _                                                = Nothing
+
+    ifInWindow m = do
+      b <- use inWindow
+      when b m
+
+-- Lift actions on the current analysis to the head of the list.
+cur :: State EventAnalysis a -> State [EventAnalysis] a
+cur m = do
+  h:t <- get
+  case runState m h of
+    (r,h') -> put (h':t) >> return r
 
 -- We take the _first_ CapCreate to be the official startup time
 recordStartup :: Timestamp -> State EventAnalysis ()
@@ -165,8 +192,8 @@ finishThread :: EventInfo -> Maybe ThreadId
 finishThread (StopThread tid ThreadFinished) = Just tid
 finishThread _                               = Nothing
 
-initialEventAnalysis :: EventAnalysis
-initialEventAnalysis = EventAnalysis {
+initialEventAnalysis :: Options -> EventAnalysis
+initialEventAnalysis opts = EventAnalysis {
     _events      = []
   , __threadInfo = Map.empty
   , _openEvents  = Map.empty
@@ -174,6 +201,7 @@ initialEventAnalysis = EventAnalysis {
   , eventStarts  = error "eventStarts computed at the end"
   , _startup     = Nothing
   , _shutdown    = Nothing
+  , _inWindow    = null (optionsWindowEvent opts)
   }
 
 computeTotals :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp
@@ -210,11 +238,7 @@ eventStart EventAnalysis{..} eid =
 
 -- | Lookup a total for a given event
 eventTotal :: EventAnalysis -> EventId -> Timestamp
-eventTotal EventAnalysis{..} eid =
-    case Map.lookup eid eventTotals of
-      Nothing -> error $ "Invalid event ID " ++ show eid ++ ". "
-                      ++ "Valid IDs are " ++ show (Map.keys eventTotals)
-      Just t  -> t
+eventTotal EventAnalysis{..} eid = fromMaybe 0 $ Map.lookup eid eventTotals
 
 -- | Compare event IDs
 compareEventIds :: EventAnalysis -> EventSort
