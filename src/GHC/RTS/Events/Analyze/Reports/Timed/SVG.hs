@@ -31,7 +31,7 @@ renderReport Options{optionsNumBuckets}
     rendered = D.vcat $ map renderSVGFragment (SVGTimeline : fragments)
 
     fragments :: [SVGFragment]
-    fragments = map renderFragment report
+    fragments = map renderFragment $ zip report (cycle allColors)
 
     renderSVGFragment :: SVGFragment -> D
     renderSVGFragment (SVGSection title) =
@@ -60,30 +60,30 @@ data SVGFragment =
   | SVGSection D
   | SVGLine D D
 
-renderFragment :: ReportFragment -> SVGFragment
-renderFragment (ReportSection title) = SVGSection (renderText title (blockSize + 2))
-renderFragment (ReportLine line)     = uncurry SVGLine $ renderLine line
+renderFragment :: (ReportFragment, Colour Double) -> SVGFragment
+renderFragment (ReportSection title,_) = SVGSection (renderText title (blockSize + 2))
+renderFragment (ReportLine line,c)     = uncurry SVGLine $ renderLine c line
 
-renderLine :: ReportLine -> (D, D)
-renderLine line@ReportLineData{..} =
+renderLine :: Colour Double -> ReportLine -> (D, D)
+renderLine lc line@ReportLineData{..} =
     ( renderText lineHeader (blockSize + 2)
-    , blocks <> bgBlocks lineBackground
+    , blocks lc <> bgBlocks lineBackground
     )
   where
-    blocks :: D
-    blocks = mconcat . map (mkBlock $ lineColor line) $ Map.toList lineValues
+    blocks :: Colour Double -> D
+    blocks c = mconcat . map (mkBlock $ lineColor c line)
+             $ Map.toList lineValues
 
     mkBlock :: Colour Double -> (Int, Double) -> D
     mkBlock c (b, q) = block b # D.fcA (c `D.withOpacity` qOpacity q)
 
-lineColor :: ReportLine -> Colour Double
-lineColor = eventColor . head . lineEventIds
+lineColor :: Colour Double -> ReportLine -> Colour Double
+lineColor c = eventColor c . head . lineEventIds
 
-eventColor :: EventId -> Colour Double
-eventColor EventGC         = D.red
-eventColor (EventUser _ _) = D.green
-eventColor (EventThread _) = D.blue
-
+eventColor :: Colour Double -> EventId -> Colour Double
+eventColor _ EventGC         = D.red
+eventColor c (EventUser _ _) = c
+eventColor _ (EventThread _) = D.blue
 
 bgBlocks :: Maybe (Int, Int) -> D
 bgBlocks Nothing         = mempty
@@ -152,3 +152,21 @@ timeline numBuckets bucketSize =
     bigLine   = mkLine [(0, 4), (blockSize, 0)]
     smallLine = mkLine [(0, 3), (blockSize, 0)]
     mkLine    = D.fromSegments . map (D.straight . D.r2)
+
+-- copied straight out of export list for Data.Colour.Names
+allColors :: (Ord a, Floating a) => [Colour a]
+allColors =
+  [D.blueviolet
+  ,D.brown
+  ,D.cadetblue
+  ,D.coral
+  ,D.cornflowerblue
+  ,D.crimson
+  ,D.cyan
+  ,D.darkcyan
+  ,D.darkgoldenrod
+  ,D.darkgreen
+  ,D.darkorange
+  ,D.goldenrod
+  ,D.green
+  ]
