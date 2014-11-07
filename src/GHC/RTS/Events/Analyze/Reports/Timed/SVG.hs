@@ -145,9 +145,9 @@ timeline numBuckets bucketSize =
     bucketTime b = let timeNs :: Timestamp
                        timeNs = fromIntegral b * bucketSize
 
-                       timeS :: Double
-                       timeS = fromIntegral timeNs / 1000000000
-                   in printf "%0.1fs" timeS
+                       timeMS :: Double
+                       timeMS = fromIntegral timeNs / 1000000
+                   in printf "%0.1fms" timeMS
 
     bigLine   = mkLine [(0, 4), (blockSize, 0)]
     smallLine = mkLine [(0, 3), (blockSize, 0)]
