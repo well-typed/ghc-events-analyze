@@ -80,6 +80,11 @@ data EventSort =
     -- Example
     -- > user by name
   | SortByTotal
+    -- | Sort by start time
+    --
+    -- Example
+    -- > user by start
+  | SortByStart
   deriving Show
 
 -- | Commands
@@ -175,6 +180,7 @@ pEventSort :: Parser (Maybe EventSort)
 pEventSort = optionMaybe $ reserved "by" *> (
                      (const SortByTotal <$> reserved "total")
                  <|> (const SortByName  <$> reserved "name")
+                 <|> (const SortByStart <$> reserved "start")
                )
 
 pTitle :: Parser (Maybe Title)
@@ -232,6 +238,7 @@ unparseSort :: Maybe EventSort -> String
 unparseSort Nothing            = ""
 unparseSort (Just SortByName)  = "by name"
 unparseSort (Just SortByTotal) = "by total"
+unparseSort (Just SortByStart) = "by start"
 
 unparseFilter :: EventFilter -> String
 unparseFilter (Is eid) = unparseEventId eid

@@ -48,7 +48,8 @@ analyze :: Options -> EventLog -> EventAnalysis
 analyze Options{..} log =
     let analysis = execState (mapM_ analyzeEvent (sortedEvents log))
                              initialEventAnalysis
-    in analysis { eventTotals = computeTotals (_events analysis) }
+    in analysis { eventTotals = computeTotals (_events analysis)
+                , eventStarts = computeStarts (_events analysis) }
   where
     analyzeEvent :: Event -> State EventAnalysis ()
     analyzeEvent (Event time spec) = do
@@ -170,6 +171,7 @@ initialEventAnalysis = EventAnalysis {
   , __threadInfo = Map.empty
   , _openEvents  = Map.empty
   , eventTotals  = error "eventTotals computed at the end"
+  , eventStarts  = error "eventStarts computed at the end"
   , _startup     = Nothing
   , _shutdown    = Nothing
   }
@@ -184,9 +186,27 @@ computeTotals = go Map.empty
     go !acc ((eid, start, stop) : es) =
       go (Map.insertWith (+) eid (stop - start) acc) es
 
+computeStarts :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp
+computeStarts = go Map.empty
+  where
+    go :: Map EventId Timestamp
+       -> [(EventId, Timestamp, Timestamp)]
+       -> Map EventId Timestamp
+    go !acc [] = acc
+    go !acc ((eid, start, _) : es) =
+      go (Map.insertWith min eid start acc) es
+
 {-------------------------------------------------------------------------------
   Using EventAnalysis
 -------------------------------------------------------------------------------}
+
+-- | Lookup start time for a given event
+eventStart :: EventAnalysis -> EventId -> Timestamp
+eventStart EventAnalysis{..} eid =
+    case Map.lookup eid eventStarts of
+      Nothing -> error $ "eventStart: Invalid event ID " ++ show eid ++ ". "
+                      ++ "Valid IDs are " ++ show (Map.keys eventStarts)
+      Just t  -> t
 
 -- | Lookup a total for a given event
 eventTotal :: EventAnalysis -> EventId -> Timestamp
@@ -203,6 +223,7 @@ compareEventIds analysis sort a b =
     case sort of
       SortByName  -> compare a b
       SortByTotal -> compare (eventTotal analysis b) (eventTotal analysis a)
+      SortByStart -> compare (eventStart analysis a) (eventStart analysis b)
 
 {-------------------------------------------------------------------------------
   Quantization

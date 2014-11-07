@@ -97,6 +97,7 @@ data EventAnalysis = EventAnalysis {
 
     -- | Total amount of time per event (non-strict)
   , eventTotals :: Map EventId Timestamp
+  , eventStarts :: Map EventId Timestamp
 
     -- | Timestamp of the Startup event
   , _startup :: !(Maybe Timestamp)
