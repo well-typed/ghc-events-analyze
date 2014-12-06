@@ -33,7 +33,7 @@ parserOptions =
     <*> switch     ( long "totals"
                   <> help "Generate totals report"
                    )
-    <*> option     ( long "buckets"
+    <*> option auto( long "buckets"
                   <> short 'b'
                   <> metavar "INT"
                   <> help "Use INT buckets for quantization."
