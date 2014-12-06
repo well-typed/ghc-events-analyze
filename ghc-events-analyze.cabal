@@ -1,5 +1,5 @@
 name:                ghc-events-analyze
-version:             0.2.0
+version:             0.2.1
 synopsis:            Analyze and visualize event logs
 description:         ghc-events-analyze is a simple Haskell profiling tool that
                      uses GHC's eventlog system. It helps with some profiling
@@ -20,6 +20,10 @@ description:         ghc-events-analyze is a simple Haskell profiling tool that
                      mode would perturb the code too much. It is also useful
                      when you want time-profiling information with a breakdown
                      over time rather than totals for the whole run.
+                     .
+                     The blog post
+                     <http://www.well-typed.com/blog/2014/02/ghc-events-analyze/ Performance profiling with ghc-events-analyze>
+                     describes the motivation in more detail.
 license:             BSD3
 license-file:        LICENSE
 author:              Edsko de Vries, Duncan Coutts, Mikolaj Konarski
