@@ -34,7 +34,12 @@ main = do
           mkReport output
           putStrLn $ "Generated " ++ output ++ " using " ++ scriptName
 
-    forM_ (zip [(0::Int)..] analyses) $ \ (i,analysis) -> do
+        prefixAnalysisNumber :: Int -> String -> String
+        prefixAnalysisNumber i filename
+          | null optionsWindowEvent = filename
+          | otherwise               = show i ++ "." ++ filename
+
+    forM_ (zip [0..] analyses) $ \ (i,analysis) -> do
 
       let quantized = quantize optionsNumBuckets analysis
           totals    = Totals.createReport analysis totalsScript
@@ -42,15 +47,18 @@ main = do
 
       writeReport optionsGenerateTotalsText
                   totalsScriptName
-                    (show i ++ ".totals.txt") $ Totals.writeReport totals
+                  (prefixAnalysisNumber i "totals.txt")
+                  (Totals.writeReport totals)
 
       writeReport optionsGenerateTimedSVG
                   timedScriptName
-                    (show i ++ ".timed.svg") $ TimedSVG.writeReport options quantized timed
+                  (prefixAnalysisNumber i "timed.svg")
+                  (TimedSVG.writeReport options quantized timed)
 
       writeReport optionsGenerateTimedText
                   timedScriptName
-                    (show i ++ ".timed.txt") $ Timed.writeReport timed
+                  (prefixAnalysisNumber i "timed.txt")
+                  (Timed.writeReport timed)
 
 getScript :: FilePath -> Script -> IO (String, Script)
 getScript ""   def = return ("default script", def)
