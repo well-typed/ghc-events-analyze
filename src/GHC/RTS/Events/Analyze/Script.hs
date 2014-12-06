@@ -16,7 +16,7 @@ module GHC.RTS.Events.Analyze.Script (
   , scriptQQ
   ) where
 
-import Control.Applicative ((<$>), (<*>), (*>), (<*))
+import Control.Applicative ((<$>), (<*>), (*>), (<*), pure)
 import Data.List (intercalate)
 import Data.Word (Word32)
 import Language.Haskell.TH.Lift (deriveLiftMany)
@@ -80,6 +80,11 @@ data EventSort =
     -- Example
     -- > user by name
   | SortByTotal
+    -- | Sort by start time
+    --
+    -- Example
+    -- > user by start
+  | SortByStart
   deriving Show
 
 -- | Commands
@@ -153,7 +158,7 @@ whiteSpace    = P.whiteSpace    lexer
 type Parser a = Parsec String () a
 
 pEventId :: Parser EventId
-pEventId =  (EventUser     <$> stringLiteral <?> "user event")
+pEventId =  (EventUser     <$> stringLiteral <*> pure 0 <?> "user event")
         <|> (EventThread   <$> pThreadId     <?> "thread event")
         <|> (const EventGC <$> reserved "GC")
   where
@@ -175,6 +180,7 @@ pEventSort :: Parser (Maybe EventSort)
 pEventSort = optionMaybe $ reserved "by" *> (
                      (const SortByTotal <$> reserved "total")
                  <|> (const SortByName  <$> reserved "name")
+                 <|> (const SortByStart <$> reserved "start")
                )
 
 pTitle :: Parser (Maybe Title)
@@ -221,7 +227,7 @@ unparseCommand (Sum f title)   = ["sum " ++ unparseFilter f ++ " " ++ unparseTit
 
 unparseEventId :: EventId -> String
 unparseEventId EventGC           = "GC"
-unparseEventId (EventUser e)     = e
+unparseEventId (EventUser e _)   = e
 unparseEventId (EventThread tid) = show tid
 
 unparseTitle :: Maybe Title -> String
@@ -232,6 +238,7 @@ unparseSort :: Maybe EventSort -> String
 unparseSort Nothing            = ""
 unparseSort (Just SortByName)  = "by name"
 unparseSort (Just SortByTotal) = "by total"
+unparseSort (Just SortByStart) = "by start"
 
 unparseFilter :: EventFilter -> String
 unparseFilter (Is eid) = unparseEventId eid

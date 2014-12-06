@@ -65,7 +65,7 @@ createReport analysis Quantized{..} = concatMap go
     -- For threads we draw a background showing the thread's lifetime
     background :: EventId -> Maybe (Int, Int)
     background EventGC           = Nothing
-    background (EventUser _)     = Nothing
+    background (EventUser _ _)   = Nothing
     background (EventThread tid) =
       case Map.lookup tid quantThreadInfo of
         Just (start, stop, _) -> Just (start, stop)
@@ -74,8 +74,7 @@ createReport analysis Quantized{..} = concatMap go
     quantTimesForEvent :: EventId -> Map Int Double
     quantTimesForEvent eid =
       case Map.lookup eid quantTimes of
-        Nothing    -> error $ "Invalid event ID " ++ show eid ++ ". "
-                           ++ "Valid IDs are " ++ show (Map.keys quantTimes)
+        Nothing    -> Map.empty -- this event didn't happen in the window
         Just times -> times
 
     sorted :: Maybe EventSort -> [(EventId, a)] -> [(EventId, a)]

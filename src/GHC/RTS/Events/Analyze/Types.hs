@@ -9,7 +9,9 @@ module GHC.RTS.Events.Analyze.Types (
   , startup
   , shutdown
   , numThreads
+  , inWindow
   , Quantized(..)
+  , GroupId
   , showEventId
   , isUserEvent
   , isThreadEvent
@@ -35,17 +37,20 @@ data EventId =
     -- > traceEventIO "START <label>"
     -- > ...
     -- > traceEventIO "STOP <label>"
-  | EventUser String
+  | EventUser String GroupId
 
     -- | Threads
   | EventThread ThreadId
   deriving (Eq, Ord, Show)
+
+type GroupId = Int
 
 -- | Command line options
 data Options = Options {
     optionsGenerateTimedSVG   :: Bool
   , optionsGenerateTimedText  :: Bool
   , optionsGenerateTotalsText :: Bool
+  , optionsWindowEvent        :: String
   , optionsNumBuckets         :: Int
   , optionsUserStart          :: String
   , optionsUserStop           :: String
@@ -94,12 +99,14 @@ data EventAnalysis = EventAnalysis {
 
     -- | Total amount of time per event (non-strict)
   , eventTotals :: Map EventId Timestamp
+  , eventStarts :: Map EventId Timestamp
 
     -- | Timestamp of the Startup event
   , _startup :: !(Maybe Timestamp)
 
     -- | Timestamp of the Shutdown event
   , _shutdown :: !(Maybe Timestamp)
+  , _inWindow :: Bool
   }
   deriving Show
 
@@ -135,13 +142,13 @@ data Quantized = Quantized {
 -- `quantThreadInfo` from `Quantized`).
 showEventId :: Map ThreadId (a, a, String) -> EventId -> String
 showEventId _     EventGC          = "GC"
-showEventId _    (EventUser event) = event
+showEventId _    (EventUser event _) = event
 showEventId info (EventThread tid) = case Map.lookup tid info of
                                        Just (_, _, l) -> l
                                        Nothing        -> show tid
 
 isUserEvent :: EventId -> Bool
-isUserEvent (EventUser _) = True
+isUserEvent (EventUser{}) = True
 isUserEvent _             = False
 
 isThreadEvent :: EventId -> Bool

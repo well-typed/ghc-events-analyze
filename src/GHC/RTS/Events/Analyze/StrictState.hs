@@ -11,6 +11,7 @@ module GHC.RTS.Events.Analyze.StrictState (
   , runState
   , evalState
   , execState
+  , modify
     -- * Re-exports
   , module Control.Monad.State.Strict
   ) where
@@ -55,3 +56,6 @@ evalState act = runIdentity . evalStateT act
 
 execState :: State s a -> s -> s
 execState act = runIdentity . execStateT act
+
+modify :: (s -> s) -> State s ()
+modify = StateT . St.modify'
