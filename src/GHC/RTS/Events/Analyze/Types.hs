@@ -56,6 +56,7 @@ data Options = Options {
   , optionsUserStop           :: String
   , optionsScriptTotals       :: FilePath  -- "" denotes the standard script
   , optionsScriptTimed        :: FilePath
+  , optionsMilliseconds       :: Bool
     -- Defined last to make defining the parser easier
   , optionsInput              :: FilePath
   }

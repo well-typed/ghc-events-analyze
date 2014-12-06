@@ -67,6 +67,9 @@ parserOptions =
                   <> help "Use the script in PATH for the timed reports"
                   <> value ""
                    )
+    <*> switch     ( long "ms"
+                  <> help "Use milliseconds (rather than seconds) on SVG timeline"
+                   )
     <*> argument str (metavar "EVENTLOG")
   ))
 

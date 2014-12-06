@@ -23,7 +23,7 @@ writeReport options quantized report path =
 type D = Diagram B R2
 
 renderReport :: Options -> Quantized -> Report -> (SizeSpec2D, D)
-renderReport Options{optionsNumBuckets}
+renderReport Options{optionsNumBuckets, optionsMilliseconds}
              Quantized{quantBucketSize}
              report = (D.sizeSpec2D rendered, rendered)
   where
@@ -44,7 +44,8 @@ renderReport Options{optionsNumBuckets}
         `D.atop`
       (D.rect lineWidth blockHeight # D.alignL # D.fc bg # D.lw D.none)
     renderSVGFragment _ SVGTimeline =
-      padHeader blockSize mempty ||| timeline optionsNumBuckets quantBucketSize
+          padHeader blockSize mempty
+      ||| timeline granularity optionsNumBuckets quantBucketSize
 
     lineWidth = headerWidth + fromIntegral optionsNumBuckets * blockWidth
 
@@ -60,6 +61,9 @@ renderReport Options{optionsNumBuckets}
     headerWidthOf :: SVGFragment -> Maybe Double
     headerWidthOf (SVGLine header _) = Just (D.width header)
     headerWidthOf _                  = Nothing
+
+    granularity = if optionsMilliseconds then TimelineMilliseconds
+                                         else TimelineSeconds
 
 data SVGFragment =
     SVGTimeline
@@ -142,8 +146,10 @@ blockWidth = 2
 blockHeight :: Double
 blockHeight = 14
 
-timeline :: Int -> Timestamp -> D
-timeline numBuckets bucketSize =
+data TimelineGranularity = TimelineSeconds | TimelineMilliseconds
+
+timeline :: TimelineGranularity -> Int -> Timestamp -> D
+timeline granularity numBuckets bucketSize =
     mconcat [ timelineBlock b # D.translateX (fromIntegral b * blockWidth)
             | b <- [0 .. numBuckets - 1]
             , b `mod` blockMod == 0
@@ -161,9 +167,15 @@ timeline numBuckets bucketSize =
     bucketTime b = let timeNs :: Timestamp
                        timeNs = fromIntegral b * bucketSize
 
+                       timeS :: Double
+                       timeS = fromIntegral timeNs / 1000000000
+
                        timeMS :: Double
                        timeMS = fromIntegral timeNs / 1000000
-                   in printf "%0.1fms" timeMS
+
+                   in case granularity of
+                        TimelineMilliseconds -> printf "%0.1fms" timeMS
+                        TimelineSeconds      -> printf "%0.1fs"  timeS
 
     bigLine   = mkLine [(0, 4), (10, 0)]
     smallLine = mkLine [(0, 3), (10, 0)]
