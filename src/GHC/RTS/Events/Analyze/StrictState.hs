@@ -27,7 +27,7 @@ import Control.Monad.Identity (Identity(..))
 -------------------------------------------------------------------------------}
 
 newtype StateT s m a = StateT { unStateT :: St.StateT s m a  }
-  deriving (Functor, Monad, MonadTrans, MonadIO)
+  deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
 
 runStateT :: StateT s m a -> s -> m (a, s)
 runStateT = St.runStateT . unStateT
