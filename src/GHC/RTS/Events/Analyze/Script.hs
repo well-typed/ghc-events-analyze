@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -w -W #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 module GHC.RTS.Events.Analyze.Script (
     -- * Types
     Script
@@ -18,7 +19,9 @@ module GHC.RTS.Events.Analyze.Script (
 
 import Control.Applicative ((<$>), (<*>), (*>), (<*), pure)
 import Data.List (intercalate)
+#if !MIN_VERSION_template_haskell(2,9,0)
 import Data.Word (Word32)
+#endif
 import Language.Haskell.TH.Lift (deriveLiftMany)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax
@@ -195,8 +198,10 @@ pScript = whiteSpace *> many1 pCommand <* eof
 
 $(deriveLiftMany [''EventId, ''EventFilter, ''EventSort, ''Command])
 
+#if !MIN_VERSION_template_haskell(2,9,0)
 instance Lift Word32 where
   lift = let conv :: Word32 -> Int ; conv = fromEnum in lift . conv
+#endif
 
 scriptQQ :: QuasiQuoter
 scriptQQ = QuasiQuoter {

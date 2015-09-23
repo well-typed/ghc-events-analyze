@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module GHC.RTS.Events.Analyze.Analysis (
     -- * Auxiliary
     readEventLog

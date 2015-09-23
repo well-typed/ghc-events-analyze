@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP #-}
 module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
     writeReport
   ) where
@@ -5,13 +7,24 @@ module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
 import Data.Maybe (catMaybes)
 import Data.Monoid (mempty, mconcat, (<>))
 import Diagrams.Backend.SVG (B, renderSVG)
-import Diagrams.Prelude (Diagram, Colour, R2, SizeSpec2D, (#), (|||))
+#if MIN_VERSION_diagrams_lib(1,3,0)
+import Diagrams.Prelude (QDiagram, Colour, V2, N, Any, (#), (|||))
+#else
+import Diagrams.Prelude (Diagram, Colour, R2, (#), (|||))
+#endif
 import GHC.RTS.Events (Timestamp)
-import Graphics.SVGFonts.ReadFont (TextOpts(..))
 import Text.Printf (printf)
 import qualified Data.Map as Map
 import qualified Diagrams.Prelude           as D
+
+#if MIN_VERSION_SVGFonts(1,5,0)
+import Graphics.SVGFonts.Text (TextOpts(..))
+import qualified Graphics.SVGFonts.Text     as F
+import qualified Graphics.SVGFonts.Fonts    as F
+#else
+import Graphics.SVGFonts.ReadFont (TextOpts(..))
 import qualified Graphics.SVGFonts.ReadFont as F
+#endif
 
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Reports.Timed hiding (writeReport)
@@ -20,13 +33,27 @@ writeReport :: Options -> Quantized -> Report -> FilePath -> IO ()
 writeReport options quantized report path =
   uncurry (renderSVG path) $ renderReport options quantized report
 
+#if MIN_VERSION_diagrams_lib(1,3,0)
+type D = QDiagram B V2 (N B) Any
+type SizeSpec = D.SizeSpec V2 Double
+#else
 type D = Diagram B R2
+type SizeSpec = D.SizeSpec2D
+#endif
 
-renderReport :: Options -> Quantized -> Report -> (SizeSpec2D, D)
+renderReport :: Options -> Quantized -> Report -> (SizeSpec, D)
 renderReport Options{optionsNumBuckets, optionsMilliseconds}
              Quantized{quantBucketSize}
-             report = (D.sizeSpec2D rendered, rendered)
+             report = (sizeSpec, rendered)
   where
+#if MIN_VERSION_diagrams_lib(1,3,0)
+    sizeSpec = let w = Just $ D.width rendered
+                   h = Just $ D.height rendered
+               in D.mkSizeSpec2D w h
+#else
+    sizeSpec = D.sizeSpec2D rendered
+#endif
+
     rendered :: D
     rendered = D.vcat $ map (uncurry renderSVGFragment)
                       $ zip (cycle [D.white, D.ghostwhite])
@@ -104,14 +131,26 @@ bgBlocks (Just (fr, to)) = mconcat [
 
 renderText :: String -> Double -> D
 renderText str size =
-    D.stroke (F.textSVG' (textOpts str size)) # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
+    D.stroke textSVG # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
+  where
+#if MIN_VERSION_SVGFonts(1,5,0)
+    textSVG = F.textSVG' (textOpts size) str
+#else
+    textSVG = F.textSVG' (textOpts str size)
+#endif
 
-
+#if MIN_VERSION_SVGFonts(1,5,0)
+textOpts :: Double -> TextOpts Double
+textOpts size =
+    TextOpts {
+        textFont   = F.lin
+#else
 textOpts :: String -> Double -> TextOpts
 textOpts str size =
     TextOpts {
         txt        = str
       , fdo        = F.lin
+#endif
       , mode       = F.INSIDE_H
       , spacing    = F.KERN
       , underline  = False
@@ -158,10 +197,15 @@ timeline granularity numBuckets bucketSize =
     blockMod = 10 `div` (round blockWidth)
     timelineBlock b
       | b `rem` (5 * blockMod) == 0
-          = D.strokeLine bigLine   # D.lw (D.Local 0.5)
+          = D.strokeLine bigLine   # D.lw (localMeasure 0.5)
           <> (renderText (bucketTime b) blockHeight # D.translateY (blockHeight - 2))
       | otherwise
-          = D.strokeLine smallLine # D.lw (D.Local 0.5) # D.translateY 1
+          = D.strokeLine smallLine # D.lw (localMeasure 0.5) # D.translateY 1
+#if MIN_VERSION_diagrams_lib(1,3,0)
+    localMeasure = D.local
+#else
+    localMeasure = D.Local
+#endif
 
     bucketTime :: Int -> String
     bucketTime b = let timeNs :: Timestamp
