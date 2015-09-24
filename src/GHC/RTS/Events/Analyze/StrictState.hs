@@ -16,6 +16,7 @@ module GHC.RTS.Events.Analyze.StrictState (
   , module Control.Monad.State.Strict
   ) where
 
+import Control.Applicative
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State.Strict (MonadState(..))
 import qualified Control.Monad.State.Strict as St
