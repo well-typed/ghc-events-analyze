@@ -1,3 +1,7 @@
+2014-09-23  Will Sewell  <will@pusher.com>
+
+  * Version 0.2.2 adds support for GHC 7.10
+
 2014-02-12  Edsko de Vries  <edsko@well-typed.com>
 
   * Initial release 
