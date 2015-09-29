@@ -70,8 +70,16 @@ analyze opts@Options{..} log =
         Startup _numCaps           -> cur $ recordStartup  time
         Shutdown                   -> cur $ recordShutdown time
         -- Thread info
-        CreateThread tid           -> cur $ recordThreadCreation tid time
-        (finishThread -> Just tid) -> cur $ recordThreadFinish tid time
+        CreateThread tid           -> cur $ do
+                                        w <- use inWindow
+                                        if w then
+                                          recordThreadCreation tid time
+                                        else
+                                          -- Will be recorded when window starts
+                                          pendingTids %= (tid :)
+        (finishThread -> Just tid) -> cur $
+                                        -- Already recorded as finished if past the window
+                                        ifInWindow $ recordThreadFinish tid time
         -- Start/end events
         ThreadLabel tid l          -> cur $ labelThread tid l
         (startId -> Just eid)      -> cur $ do
@@ -79,10 +87,12 @@ analyze opts@Options{..} log =
                                         when (isWindowEvent eid) $ do
                                           startup .= Just time
                                           inWindow .= True
+                                          recordPendingThreadsCreation time
         (stopId  -> Just eid)      -> do when (isWindowEvent eid) $ do
                                            cur $ do
                                              inWindow .= False
                                              recordShutdown time
+                                             recordAllThreadFinish time
                                            modify (initialEventAnalysis opts :)
                                          cur $ ifInWindow $ recordEventStop eid time
         _                          -> return ()
@@ -175,6 +185,11 @@ recordThreadCreation :: ThreadId -> Timestamp -> State EventAnalysis ()
 recordThreadCreation tid start =
     threadInfo tid .= Just (start, start, show tid)
 
+recordPendingThreadsCreation :: Timestamp -> State EventAnalysis ()
+recordPendingThreadsCreation start = do
+    tids <- use pendingTids
+    mapM_ (\tid -> recordThreadCreation tid start) tids
+
 recordThreadFinish :: ThreadId -> Timestamp -> State EventAnalysis ()
 recordThreadFinish tid stop = do
     -- The "thread finished" doubles as a "thread stop"
@@ -182,6 +197,11 @@ recordThreadFinish tid stop = do
     threadInfo tid %= fmap updStop
   where
     updStop (start, _stop, l) = (start, stop, l)
+
+recordAllThreadFinish :: Timestamp -> State EventAnalysis ()
+recordAllThreadFinish start = do
+    tids <- threadIds <$> get
+    mapM_ (\tid -> recordThreadFinish tid start) tids
 
 labelThread :: ThreadId -> String -> State EventAnalysis ()
 labelThread tid l =
@@ -203,6 +223,7 @@ initialEventAnalysis opts = EventAnalysis {
   , _startup     = Nothing
   , _shutdown    = Nothing
   , _inWindow    = null (optionsWindowEvent opts)
+  , _pendingTids = []
   }
 
 computeTotals :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp

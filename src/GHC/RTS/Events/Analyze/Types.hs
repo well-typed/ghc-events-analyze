@@ -9,7 +9,9 @@ module GHC.RTS.Events.Analyze.Types (
   , startup
   , shutdown
   , numThreads
+  , threadIds
   , inWindow
+  , pendingTids
   , Quantized(..)
   , GroupId
   , showEventId
@@ -108,6 +110,10 @@ data EventAnalysis = EventAnalysis {
     -- | Timestamp of the Shutdown event
   , _shutdown :: !(Maybe Timestamp)
   , _inWindow :: Bool
+
+    -- | This will accumulate threads which were started before a window start.
+    -- Their creation will be recorded once the window starts.
+  , _pendingTids :: [ThreadId]
   }
   deriving Show
 
@@ -118,6 +124,9 @@ threadInfo tid = _threadInfo . at tid
 
 numThreads :: EventAnalysis -> Int
 numThreads analysis = Map.size (analysis ^. _threadInfo)
+
+threadIds :: EventAnalysis -> [ThreadId]
+threadIds analysis = Map.keys (analysis ^. _threadInfo)
 
 -- | Quantization splits the total time up into @n@ buckets. We record for each
 -- event and each bucket what percentage of that bucket the event used. A
