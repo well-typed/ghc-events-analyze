@@ -1,4 +1,8 @@
-2014-09-23  Will Sewell  <will@pusher.com>
+2015-09-29 Will Sewell <will@pusher.com>
+
+  * Version 0.2.3 fixes issue with thread creation before window start
+
+2015-09-23  Will Sewell  <will@pusher.com>
 
   * Version 0.2.2 adds support for GHC 7.10
 
