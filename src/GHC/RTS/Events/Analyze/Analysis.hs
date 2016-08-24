@@ -4,8 +4,6 @@ module GHC.RTS.Events.Analyze.Analysis (
     readEventLog
     -- * Basic analysis
   , events
-  , threadInfo
-  , numThreads
   , analyze
     -- * Using EventAnalysis
   , eventTotal
@@ -16,8 +14,8 @@ module GHC.RTS.Events.Analyze.Analysis (
 
 import Prelude hiding (log)
 import Control.Applicative ((<$>), (<|>))
-import Control.Lens ((%=), (.=), use)
-import Control.Monad (forM_, when)
+import Control.Lens ((%=), (.=), at, use)
+import Control.Monad (forM_, when, void)
 import Data.Char (isSpace, isDigit)
 import Data.Maybe (fromMaybe)
 import Data.Map.Strict (Map)
@@ -25,7 +23,7 @@ import GHC.RTS.Events hiding (events)
 import qualified Data.Map.Strict as Map
 
 import GHC.RTS.Events.Analyze.Utils
-import GHC.RTS.Events.Analyze.StrictState (State, execState, put, modify, get, runState)
+import GHC.RTS.Events.Analyze.StrictState (State, execState, put, get, runState)
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Script
 
@@ -47,8 +45,8 @@ readEventLog  = throwLeftStr . readEventLogFromFile
 
 analyze :: Options -> EventLog -> [EventAnalysis]
 analyze opts@Options{..} log =
-    let analyses = execState (mapM_ analyzeEvent (sortedEvents log))
-                             [initialEventAnalysis opts]
+    let AnalysisState _ analyses = execState (mapM_ analyzeEvent (sortedEvents log))
+                                             (initialAnalysisState opts)
     in reverse
        [ analysis { eventTotals = computeTotals (_events analysis)
                   , eventStarts = computeStarts (_events analysis) }
@@ -59,7 +57,7 @@ analyze opts@Options{..} log =
                       [] -> const False
                       nm -> (== parseGroupId nm)
 
-    analyzeEvent :: Event -> State [EventAnalysis] ()
+    analyzeEvent :: Event -> State AnalysisState ()
     analyzeEvent (Event time spec) = do
       cur $ recordShutdown time
       case spec of
@@ -70,30 +68,13 @@ analyze opts@Options{..} log =
         Startup _numCaps           -> cur $ recordStartup  time
         Shutdown                   -> cur $ recordShutdown time
         -- Thread info
-        CreateThread tid           -> cur $ do
-                                        w <- use inWindow
-                                        if w then
-                                          recordThreadCreation tid time
-                                        else
-                                          -- Will be recorded when window starts
-                                          pendingTids %= (tid :)
-        (finishThread -> Just tid) -> cur $
-                                        -- Already recorded as finished if past the window
-                                        ifInWindow $ recordThreadFinish tid time
+        CreateThread tid           -> recordThreadCreation tid time
+        (finishThread -> Just tid) -> recordThreadFinish tid time
         -- Start/end events
-        ThreadLabel tid l          -> cur $ labelThread tid l
-        (startId -> Just eid)      -> cur $ do
-                                        ifInWindow $ recordEventStart eid time
-                                        when (isWindowEvent eid) $ do
-                                          startup .= Just time
-                                          inWindow .= True
-                                          recordPendingThreadsCreation time
-        (stopId  -> Just eid)      -> do when (isWindowEvent eid) $ do
-                                           cur $ do
-                                             inWindow .= False
-                                             recordShutdown time
-                                             recordAllThreadFinish time
-                                           modify (initialEventAnalysis opts :)
+        ThreadLabel tid l          -> labelThread tid l
+        (startId -> Just eid)      -> do cur $ ifInWindow $ recordEventStart eid time
+                                         when (isWindowEvent eid) $ recordWindowStart time
+        (stopId  -> Just eid)      -> do when (isWindowEvent eid) $ recordWindowStop opts time
                                          cur $ ifInWindow $ recordEventStop eid time
         _                          -> return ()
 
@@ -109,16 +90,17 @@ analyze opts@Options{..} log =
     stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ parseGroupId e
     stopId _                                                = Nothing
 
-    ifInWindow m = do
-      b <- use inWindow
-      when b m
+ifInWindow :: State EventAnalysis () -> State EventAnalysis ()
+ifInWindow m = do
+  b <- use inWindow
+  when b m
 
 -- Lift actions on the current analysis to the head of the list.
-cur :: State EventAnalysis a -> State [EventAnalysis] a
+cur :: State EventAnalysis a -> State AnalysisState a
 cur m = do
-  h:t <- get
+  AnalysisState ts (h:t) <- get
   case runState m h of
-    (r,h') -> put (h':t) >> return r
+    (r, h') -> put (AnalysisState ts (h':t)) >> return r
 
 -- We take the _first_ CapCreate to be the official startup time
 recordStartup :: Timestamp -> State EventAnalysis ()
@@ -181,49 +163,90 @@ simulateUserEventsStartAt newStart = openEvents %= Map.mapWithKey updUserEvent
       EventThread _ -> (oldStart, count)
       EventUser _ _ -> (newStart, count)
 
-recordThreadCreation :: ThreadId -> Timestamp -> State EventAnalysis ()
-recordThreadCreation tid start =
-    threadInfo tid .= Just (start, start, show tid)
+recordWindowStart :: Timestamp -> State AnalysisState ()
+recordWindowStart time = do
+  cur $ do
+    startup .= Just time
+    inWindow .= True
+  -- Record creation of any threads that
+  -- were running before window was entered
+  recordRunningThreadCreation time
 
-recordPendingThreadsCreation :: Timestamp -> State EventAnalysis ()
-recordPendingThreadsCreation start = do
-    tids <- use pendingTids
-    mapM_ (\tid -> recordThreadCreation tid start) tids
+recordWindowStop :: Options -> Timestamp -> State AnalysisState ()
+recordWindowStop opts time = do
+  cur $ do
+    inWindow .= False
+    recordShutdown time
+  recordRunningThreadFinish time
+  windowAnalyses %= (initialEventAnalysis opts :)
 
-recordThreadFinish :: ThreadId -> Timestamp -> State EventAnalysis ()
+-- Record thread creation in current window, and add it to the map of running threads
+recordThreadCreation :: ThreadId -> Timestamp -> State AnalysisState ()
+recordThreadCreation tid start = do
+    let label = show tid
+    cur $ ifInWindow $ recordWindowThreadCreation tid start label
+    runningThreads . at tid .= Just label
+
+-- Record thread creation in current window
+recordWindowThreadCreation :: ThreadId -> Timestamp -> String -> State EventAnalysis ()
+recordWindowThreadCreation tid start label =
+    windowThreadInfo . at tid .=  Just (start, start, label)
+
+-- Record the creation of all running threads in the current window
+-- This should be used when entering a window
+recordRunningThreadCreation :: Timestamp -> State AnalysisState ()
+recordRunningThreadCreation start = do
+    threads <- use runningThreads
+    void $ Map.traverseWithKey recordWindowCreation threads
+  where
+    recordWindowCreation tid label = cur $ recordWindowThreadCreation tid start label
+
+recordThreadFinish :: ThreadId -> Timestamp -> State AnalysisState ()
 recordThreadFinish tid stop = do
     -- The "thread finished" doubles as a "thread stop"
-    recordEventStop (EventThread tid) stop
-    threadInfo tid %= fmap updStop
+    cur $ ifInWindow $ recordEventStop (EventThread tid) stop
+    cur $ ifInWindow $ recordWindowThreadFinish tid stop
+    runningThreads . at tid .= Nothing
+
+recordWindowThreadFinish :: ThreadId -> Timestamp -> State EventAnalysis ()
+recordWindowThreadFinish tid stop =
+    windowThreadInfo . at tid %= fmap updStop
   where
     updStop (start, _stop, l) = (start, stop, l)
 
-recordAllThreadFinish :: Timestamp -> State EventAnalysis ()
-recordAllThreadFinish start = do
-    tids <- threadIds <$> get
-    mapM_ (\tid -> recordThreadFinish tid start) tids
+recordRunningThreadFinish :: Timestamp -> State AnalysisState ()
+recordRunningThreadFinish stop = do
+    threads <- use runningThreads
+    mapM_ (\tid -> cur $ recordWindowThreadFinish tid stop) $ threadIds threads
 
-labelThread :: ThreadId -> String -> State EventAnalysis ()
-labelThread tid l =
-    threadInfo tid %= fmap updLabel
+labelThread :: ThreadId -> String -> State AnalysisState ()
+labelThread tid l = do
+    runningThreads . at tid %= fmap updLabel
+    cur $ windowThreadInfo . at tid %= fmap updThreadInfo
   where
-    updLabel (start, stop, l') = (start, stop, l ++ " (" ++ l' ++ ")")
+    updThreadInfo (start, stop, l') = (start, stop, updLabel l')
+    updLabel l' = l ++ " (" ++ l' ++ ")"
 
 finishThread :: EventInfo -> Maybe ThreadId
 finishThread (StopThread tid ThreadFinished) = Just tid
 finishThread _                               = Nothing
 
+initialAnalysisState :: Options -> AnalysisState
+initialAnalysisState opts = AnalysisState {
+    _runningThreads = Map.empty
+  , _windowAnalyses = [initialEventAnalysis opts]
+  }
+
 initialEventAnalysis :: Options -> EventAnalysis
 initialEventAnalysis opts = EventAnalysis {
-    _events      = []
-  , __threadInfo = Map.empty
-  , _openEvents  = Map.empty
-  , eventTotals  = error "eventTotals computed at the end"
-  , eventStarts  = error "eventStarts computed at the end"
-  , _startup     = Nothing
-  , _shutdown    = Nothing
-  , _inWindow    = null (optionsWindowEvent opts)
-  , _pendingTids = []
+    _events           = []
+  , _windowThreadInfo = Map.empty
+  , _openEvents       = Map.empty
+  , eventTotals       = error "eventTotals computed at the end"
+  , eventStarts       = error "eventStarts computed at the end"
+  , _startup          = Nothing
+  , _shutdown         = Nothing
+  , _inWindow         = null (optionsWindowEvent opts)
   }
 
 computeTotals :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp
@@ -278,7 +301,7 @@ compareEventIds analysis sort a b =
 quantize :: Int -> EventAnalysis -> Quantized
 quantize numBuckets EventAnalysis{..} = Quantized {
       quantTimes      = go Map.empty _events
-    , quantThreadInfo = Map.map quantizeThreadInfo __threadInfo
+    , quantThreadInfo = Map.map quantizeThreadInfo _windowThreadInfo
     , quantBucketSize = bucketSize
     }
   where

@@ -55,7 +55,7 @@ createReport analysis@EventAnalysis{..} = concatMap go
 
     reportLine :: Maybe Title -> (EventId, Timestamp) -> ReportLine
     reportLine title (eid, total) = ReportLineData {
-        lineHeader   = showTitle (showEventId __threadInfo eid) title
+        lineHeader   = showTitle (showEventId _windowThreadInfo eid) title
       , lineEventIds = [eid]
       , lineTotal    = total
       }
