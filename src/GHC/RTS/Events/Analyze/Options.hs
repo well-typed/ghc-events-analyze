@@ -1,9 +1,14 @@
+{-# LANGUAGE CPP #-}
 module GHC.RTS.Events.Analyze.Options (
     Options(..)
   , parseOptions
   ) where
 
 import Options.Applicative
+
+#if !MIN_VERSION_base(4,8,0)
+import Data.Monoid (mconcat)
+#endif
 
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Script
@@ -12,66 +17,77 @@ import GHC.RTS.Events.Analyze.Script.Standard
 parseOptions :: IO Options
 parseOptions = customExecParser (prefs showHelpOnError) opts
   where
-    opts = info (helper <*> parserOptions)
-              ( fullDesc
-             <> progDesc "Quantize and visualize EVENTLOG"
-             <> footer "If no output is selected, generates SVG and totals."
-              )
+    opts = info (helper <*> parserOptions) $ mconcat [
+        fullDesc
+      , progDesc "Quantize and visualize EVENTLOG"
+      , footer "If no output is selected, generates SVG and totals."
+      ]
 
 parserOptions :: Parser Options
 parserOptions =
-      infoOption scriptHelp ( long "help-script"
-                           <> help "Detailed information about scripts"
-                            )
-  <*> (selectDefaultOutput <$> (Options
-    <$> switch     ( long "timed"
-                  <> help "Generate timed report (in SVG format)"
-                   )
-    <*> switch     ( long "timed-txt"
-                  <> help "Generate timed report (in textual format)"
-                   )
-    <*> switch     ( long "totals"
-                  <> help "Generate totals report"
-                   )
-    <*> strOption  ( long "window"
-                  <> metavar "NAME"
-                  <> help "Events named NAME act to mark bounds of visualization window."
-                  <> value ""
-                   )
-    <*> option auto( long "buckets"
-                  <> short 'b'
-                  <> metavar "INT"
-                  <> help "Use INT buckets for quantization."
-                  <> showDefault
-                  <> value 1000
-                   )
-    <*> strOption  ( long "start"
-                  <> metavar "STR"
-                  <> help "Use STR as the prefix for the start of user events"
-                  <> showDefault
-                  <> value "START "
-                   )
-    <*> strOption  ( long "stop"
-                  <> metavar "STR"
-                  <> help "Use STR as the prefix for the end of user events"
-                  <> showDefault
-                  <> value "STOP "
-                   )
-    <*> strOption  ( long "script-totals"
-                  <> metavar "PATH"
-                  <> help "Use the script in PATH for the totals report"
-                  <> value ""
-                   )
-    <*> strOption  ( long "script-timed"
-                  <> metavar "PATH"
-                  <> help "Use the script in PATH for the timed reports"
-                  <> value ""
-                   )
-    <*> switch     ( long "ms"
-                  <> help "Use milliseconds (rather than seconds) on SVG timeline"
-                   )
-    <*> argument str (metavar "EVENTLOG")
-  ))
+        (infoOption scriptHelp $ mconcat [
+            long "help-script"
+          , help "Detailed information about scripts"
+          ])
+    <*> (selectDefaultOutput <$> (Options
+      <$> (switch $ mconcat [
+              long "timed"
+            , help "Generate timed report (in SVG format)"
+            ])
+      <*> (switch $ mconcat [
+              long "timed-txt"
+            , help "Generate timed report (in textual format)"
+            ])
+      <*> (switch $ mconcat [
+              long "totals"
+            , help "Generate totals report"
+            ])
+      <*> (strOption $ mconcat [
+              long "window"
+            , metavar "NAME"
+            , help "Events named NAME act to mark bounds of visualization window."
+            , value ""
+            ])
+      <*> (option auto $ mconcat [
+              long "buckets"
+            , short 'b'
+            , metavar "INT"
+            , help "Use INT buckets for quantization."
+            , showDefault
+            , value 1000
+            ])
+      <*> (strOption $ mconcat [
+              long "start"
+            , metavar "STR"
+            , help "Use STR as the prefix for the start of user events"
+            , showDefault
+            , value "START "
+            ])
+      <*> (strOption $ mconcat [
+              long "stop"
+            , metavar "STR"
+            , help "Use STR as the prefix for the end of user events"
+            , showDefault
+            , value "STOP "
+            ])
+      <*> (strOption $ mconcat [
+              long "script-totals"
+            , metavar "PATH"
+            , help "Use the script in PATH for the totals report"
+            , value ""
+            ])
+      <*> (strOption $ mconcat [
+              long "script-timed"
+            , metavar "PATH"
+            , help "Use the script in PATH for the timed reports"
+            , value ""
+            ])
+      <*> (switch $ mconcat [
+              long "ms"
+            , help "Use milliseconds (rather than seconds) on SVG timeline"
+            ])
+      <*> argument str (metavar "EVENTLOG")
+    ))
 
 scriptHelp :: String
 scriptHelp = unlines [
