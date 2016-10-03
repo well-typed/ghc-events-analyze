@@ -2,6 +2,7 @@
 module GHC.RTS.Events.Analyze.Types (
     EventId(..)
   , Options(..)
+  , TimelineGranularity(..)
   , EventAnalysis(..)
   , events
   , threadInfo
@@ -47,6 +48,9 @@ data EventId =
 
 type GroupId = Int
 
+data TimelineGranularity = TimelineSeconds | TimelineMilliseconds
+  deriving Show
+
 -- | Command line options
 data Options = Options {
     optionsGenerateTimedSVG   :: Bool
@@ -58,7 +62,11 @@ data Options = Options {
   , optionsUserStop           :: String
   , optionsScriptTotals       :: FilePath  -- "" denotes the standard script
   , optionsScriptTimed        :: FilePath
-  , optionsMilliseconds       :: Bool
+  , optionsGranularity        :: TimelineGranularity
+  , optionsTickEvery          :: Int
+  , optionsBucketWidth        :: Double
+  , optionsBucketHeight       :: Double
+  , optionsBorderWidth        :: Double -- '0' for no border 
     -- Defined last to make defining the parser easier
   , optionsInput              :: FilePath
   }

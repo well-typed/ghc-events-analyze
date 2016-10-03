@@ -1,15 +1,32 @@
-2015-01-19 Will Sewell <will@pusher.com>
+0.2.5
+
+  * Add new command line options: `--tick-every`, `--bucket-width`,
+    `--bucket-height`, and `--border-width`. This allows to get both the
+    behaviour we used in the blogpost and the behaviour that was implemented
+    by Andrew Farmer in 0.2.1
+    (2016-10-03 Edsko de Vries <edsko@well-typed.com>)
+
+0.2.4  
 
   * Bump optparse-applicative and lens versions
+    (2015-01-19, Will Sewell <will@pusher.com>)
 
-2015-09-29 Will Sewell <will@pusher.com>
+0.2.3
 
-  * Version 0.2.3 fixes issue with thread creation before window start
+  * Fix issue with thread creation before window start
+    (2015-09-29, Will Sewell <will@pusher.com>)
 
-2015-09-23  Will Sewell  <will@pusher.com>
+0.2.2
 
-  * Version 0.2.2 adds support for GHC 7.10
+  * Adds support for GHC 7.10
+    (2015-09-23, Will Sewell <will@pusher.com>)
 
-2014-02-12  Edsko de Vries  <edsko@well-typed.com>
+0.2.1
+
+  * Slice time more finely, and various related changes
+    (2014-12-06, Andrew Farmer <anfarmer@fb.com>)
+
+0.2.0
 
   * Initial release
+    (2014-02-12, Edsko de Vries <edsko@well-typed.com>)

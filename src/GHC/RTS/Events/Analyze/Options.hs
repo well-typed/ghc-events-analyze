@@ -4,6 +4,7 @@ module GHC.RTS.Events.Analyze.Options (
   , parseOptions
   ) where
 
+import Data.Foldable (asum)
 import Options.Applicative
 
 #if !MIN_VERSION_base(4,8,0)
@@ -82,12 +83,46 @@ parserOptions =
             , help "Use the script in PATH for the timed reports"
             , value ""
             ])
-      <*> (switch $ mconcat [
-              long "ms"
-            , help "Use milliseconds (rather than seconds) on SVG timeline"
+      <*> parseTimelineGranularity
+      <*> (option auto $ mconcat [
+              long "tick-every"
+            , metavar "N"
+            , help "Render a tick every N buckets"
+            , value 1
+            , showDefault
+            ])
+      <*> (option auto $ mconcat [
+              long "bucket-width"
+            , metavar "DOUBLE"
+            , help "Width of every bucket"
+            , value 14
+            , showDefault
+            ])
+      <*> (option auto $ mconcat [
+              long "bucket-height"
+            , metavar "DOUBLE"
+            , help "Height of every bucket"
+            , value 14
+            , showDefault
+            ])
+      <*> (option auto $ mconcat [
+              long "border-width"
+            , metavar "DOUBLE"
+            , help "Width of the border around each bucket (set to 0 for none)"
+            , value 0.1
+            , showDefault
             ])
       <*> argument str (metavar "EVENTLOG")
     ))
+
+parseTimelineGranularity :: Parser TimelineGranularity
+parseTimelineGranularity = asum [
+      flag' TimelineMilliseconds $ mconcat [
+          long "ms"
+        , help "Use milliseconds (rather than seconds) on SVG timeline"
+        ]
+    , pure TimelineSeconds
+    ]
 
 scriptHelp :: String
 scriptHelp = unlines [
