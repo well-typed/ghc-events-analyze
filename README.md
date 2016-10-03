@@ -25,4 +25,4 @@ ghc-events-analyze -b 500 --tick-every 50 --bucket-width 1 --border-width 0
 
 The results in something like
 
-![](slicedfinaly.png)
+![](slicedfinely.png)
