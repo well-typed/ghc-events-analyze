@@ -17,17 +17,21 @@ module GHC.RTS.Events.Analyze.Script (
   , scriptQQ
   ) where
 
-import Control.Applicative ((<$>), (<*>), (*>), (<*), pure)
 import Data.List (intercalate)
-#if !MIN_VERSION_template_haskell(2,10,0)
-import Data.Word (Word32)
-#endif
 import Language.Haskell.TH.Lift (deriveLiftMany)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax
 import Text.Parsec
 import Text.Parsec.Language (haskellDef)
 import qualified Text.Parsec.Token as P
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative ((<$>), (<*>), (*>), (<*), pure)
+#endif
+
+#if !MIN_VERSION_template_haskell(2,10,0)
+import Data.Word (Word32)
+#endif
 
 import GHC.RTS.Events.Analyze.Types
 

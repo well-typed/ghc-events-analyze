@@ -1,9 +1,13 @@
+{-# LANGUAGE CPP #-}
 module Main where
 
-import Control.Applicative ((<$>))
 import Control.Monad (when, forM_)
 import System.FilePath (replaceExtension, takeFileName)
 import Text.Parsec.String (parseFromFile)
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative ((<$>))
+#endif
 
 import GHC.RTS.Events.Analyze.Analysis
 import GHC.RTS.Events.Analyze.Options

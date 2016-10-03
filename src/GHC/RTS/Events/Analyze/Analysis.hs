@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, CPP #-}
 module GHC.RTS.Events.Analyze.Analysis (
     -- * Auxiliary
     readEventLog
@@ -15,7 +15,7 @@ module GHC.RTS.Events.Analyze.Analysis (
   ) where
 
 import Prelude hiding (log)
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative ((<|>))
 import Control.Lens ((%=), (.=), use)
 import Control.Monad (forM_, when)
 import Data.Char (isSpace, isDigit)
@@ -23,6 +23,10 @@ import Data.Maybe (fromMaybe)
 import Data.Map.Strict (Map)
 import GHC.RTS.Events hiding (events)
 import qualified Data.Map.Strict as Map
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative ((<$>))
+#endif
 
 import GHC.RTS.Events.Analyze.Utils
 import GHC.RTS.Events.Analyze.StrictState (State, execState, put, modify, get, runState)

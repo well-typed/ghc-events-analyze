@@ -1,5 +1,5 @@
 -- | State monad which forces the state to whnf on every step
-{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving, CPP #-}
 module GHC.RTS.Events.Analyze.StrictState (
     -- * Transformer
     StateT
@@ -16,12 +16,15 @@ module GHC.RTS.Events.Analyze.StrictState (
   , module Control.Monad.State.Strict
   ) where
 
-import Control.Applicative
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State.Strict (MonadState(..))
 import qualified Control.Monad.State.Strict as St
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Identity (Identity(..))
+
+#if !MIN_VERSION_base(4,8,0)
+import Control.Applicative
+#endif
 
 {-------------------------------------------------------------------------------
   Transformer
