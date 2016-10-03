@@ -16,7 +16,7 @@ This results in something like
 
 ![](slicedcoarsely.png)
 
-To slice time for minely (this was the default for versions 0.2.1--0.2.4), you
+To slice time more finely (this was the default for versions 0.2.1--0.2.4), you
 can run
 
 ```
