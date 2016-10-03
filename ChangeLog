@@ -5,26 +5,34 @@
     behaviour we used in the blogpost and the behaviour that was implemented
     by Andrew Farmer in 0.2.1
     (2016-10-03 Edsko de Vries <edsko@well-typed.com>)
-
-0.2.4  
-
-  * Bump optparse-applicative and lens versions
-    (2015-01-19, Will Sewell <will@pusher.com>)
-
-0.2.3
-
   * Fix issue with thread creation before window start
     (2015-09-29, Will Sewell <will@pusher.com>)
+  * Bump optparse-applicative and lens versions
+    (2015-01-19, Will Sewell <will@pusher.com>)
 
 0.2.2
 
   * Adds support for GHC 7.10
     (2015-09-23, Will Sewell <will@pusher.com>)
+    (2015-05-29, GaneshRapolu <grapolu@berkeley.edu>)
 
 0.2.1
 
-  * Slice time more finely, and various related changes
+  * Slice time more finely, add sorting options for timed report,
+    more colours, support for ms on the timeline, use alternating colours
+    for background
     (2014-12-06, Andrew Farmer <anfarmer@fb.com>)
+  * Make sure _shutdown is always set, so that event logs from programs
+    that terminated abnormally can still be visualized
+    (2014-03-14, Bas van Dijk <v.dijk.bas@gmail.com>)
+  * Relax bounds
+    (2014-05-28, Dominic Steinitz <dominic@steinitz.org>)
+    (2014-11-05, Alexander Vershilov <alexander.vershilov@gmail.com>)
+    (2014-11-07, Andrew Farmer <anfarmer@fb.com>)
+  * Move to diagrams 1.2
+    (2014-06-25, Carter Tazio Schonwald <carter.schonwald@gmail.com>)
+  * Fix space leak in recordShutdown
+    (2014-08-15, John Lato <jwlato@tsurucapital.com>)
 
 0.2.0
 
