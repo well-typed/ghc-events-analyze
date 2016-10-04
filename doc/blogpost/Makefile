@@ -1,6 +1,7 @@
 .PHONY: svgs
 svgs: eventlogs
 	ghc-events-analyze -b 50 --script-timed nouser.script ex0-NT.eventlog
+	ghc-events-analyze -b 50 --script-timed nouser.script --window "WINDOW" ex0-windowed-NT.eventlog
 	ghc-events-analyze -b 50 --script-timed nouser.script ex0-N1.eventlog
 	ghc-events-analyze -b 50 --script-timed nouser.script ex0-N2.eventlog
 	ghc-events-analyze -b 50 ex1-NT.eventlog
@@ -10,6 +11,7 @@ svgs: eventlogs
 .PHONY: eventlogs 
 eventlogs: \
   ex0-NT.eventlog \
+  ex0-windowed-NT.eventlog \
   ex0-N1.eventlog \
   ex0-N2.eventlog \
   ex1-NT.eventlog \
@@ -20,6 +22,11 @@ ex0-NT.eventlog: ex0.hs
 	ghc ex0 -eventlog -rtsopts -fforce-recomp -Wall
 	./ex0 +RTS -l
 	mv ex0.eventlog ex0-NT.eventlog
+
+ex0-windowed-NT.eventlog: ex0-windowed.hs
+	ghc ex0-windowed -eventlog -rtsopts -fforce-recomp -Wall
+	./ex0-windowed +RTS -l
+	mv ex0-windowed.eventlog ex0-windowed-NT.eventlog
 
 ex0-N1.eventlog: ex0.hs
 	ghc ex0 -eventlog -rtsopts -fforce-recomp -threaded -Wall

@@ -32,6 +32,32 @@ The results in something like
 
 ## Windowing
 
+Windowing can be used to split all events into a bunch of reports, one per
+window. You can use it like this:
+
+```
+  traceEventIO "START WINDOW"
+  ...
+  traceEventIO "STOP WINDOW"
+
+  traceEventIO "START WINDOW"
+  ...
+  traceEventIO "STOP WINDOW"
+
+  traceEventIO "START WINDOW"
+  ...
+  traceEventIO "STOP WINDOW"
+```
+
+If you then run `ghc-events-analyze` using `--window "WINDOW"` it will create
+one report per window; for instance, in the above example it would create
+
+```
+example.0.timed.svg
+example.1.timed.svg
+example.2.timed.svg
+```
+
 ## Manual sorting of events
 
 If you want more control over how your events are sorted, you can give them
