@@ -13,7 +13,7 @@ module GHC.RTS.Events.Analyze.Analysis (
   ) where
 
 import Prelude hiding (log)
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative ((<|>))
 import Control.Lens ((%=), (.=), at, use)
 import Control.Monad (forM_, when, void)
 import Data.Char (isSpace, isDigit)

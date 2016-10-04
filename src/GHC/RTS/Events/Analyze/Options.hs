@@ -133,7 +133,7 @@ scriptHelp = unlines [
     , "<command> ::= \"section\" STRING"
     , "            | <eventId>      (\"as\" STRING)?"
     , "            | \"sum\" <filter> (\"as\" STRING)?"
-    , "            | <filter>       (\"by\" <sort>)?"
+    , "            | \"all\" <filter> (\"by\" <sort>)?"
     , ""
     , "<eventId> ::= STRING     -- user event"
     , "            | INT        -- thread event"
@@ -146,6 +146,7 @@ scriptHelp = unlines [
     , ""
     , "<sort>    ::= \"total\""
     , "            | \"name\""
+    , "            | \"start\""
     , ""
     , "The default script for the timed reports is\n"
     ]

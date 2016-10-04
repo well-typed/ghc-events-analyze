@@ -160,9 +160,23 @@ whiteSpace    = P.whiteSpace    lexer
 
 {-------------------------------------------------------------------------------
   Syntax analysis
+
+  NOTE: If updating the grammar here should also update the BNF description
+  in 'scriptHelp' (@--help-script@).
+
+  NOTE: Make sure parser and unparser are consistent with each other.
 -------------------------------------------------------------------------------}
 
 type Parser a = Parsec String () a
+
+pScript :: Parser Script
+pScript = whiteSpace *> many1 pCommand <* eof
+
+pCommand :: Parser Command
+pCommand = (Section <$> (reserved "section" *> stringLiteral))
+       <|> (One     <$> pEventId                         <*> pTitle)
+       <|> (Sum     <$> (reserved "sum" *> pEventFilter) <*> pTitle)
+       <|> (All     <$> (reserved "all" *> pEventFilter) <*> pEventSort)
 
 pEventId :: Parser EventId
 pEventId =  (EventUser     <$> stringLiteral <*> pure 0 <?> "user event")
@@ -177,12 +191,6 @@ pEventFilter =  (Is             <$> pEventId)
             <|> (const IsThread <$> reserved "thread")
             <|> (Any            <$> (squares $ commaSep1 pEventFilter))
 
-pCommand :: Parser Command
-pCommand = (Section <$> (reserved "section" *> stringLiteral))
-       <|> (One     <$> pEventId                         <*> pTitle)
-       <|> (Sum     <$> (reserved "sum" *> pEventFilter) <*> pTitle)
-       <|> (All     <$> (reserved "all" *> pEventFilter) <*> pEventSort)
-
 pEventSort :: Parser (Maybe EventSort)
 pEventSort = optionMaybe $ reserved "by" *> (
                      (const SortByTotal <$> reserved "total")
@@ -193,8 +201,39 @@ pEventSort = optionMaybe $ reserved "by" *> (
 pTitle :: Parser (Maybe Title)
 pTitle = optionMaybe (reserved "as" *> stringLiteral)
 
-pScript :: Parser Script
-pScript = whiteSpace *> many1 pCommand <* eof
+{-------------------------------------------------------------------------------
+  Unparsing
+-------------------------------------------------------------------------------}
+
+unparseScript :: Script -> [String]
+unparseScript = concatMap unparseCommand
+
+unparseCommand :: Command -> [String]
+unparseCommand (Section title) = ["", "section " ++ show title]
+unparseCommand (One eid title) = [unparseEventId eid ++ " " ++ unparseTitle title]
+unparseCommand (Sum f title)   = ["sum " ++ unparseFilter f ++ " " ++ unparseTitle title]
+unparseCommand (All f sort)    = ["all " ++ unparseFilter f ++ " " ++ unparseSort sort]
+
+unparseEventId :: EventId -> String
+unparseEventId EventGC           = "GC"
+unparseEventId (EventUser e _)   = show e
+unparseEventId (EventThread tid) = show tid
+
+unparseFilter :: EventFilter -> String
+unparseFilter (Is eid) = unparseEventId eid
+unparseFilter IsUser   = "user"
+unparseFilter IsThread = "thread"
+unparseFilter (Any fs) = "[" ++ intercalate "," (map unparseFilter fs) ++ "]"
+
+unparseSort :: Maybe EventSort -> String
+unparseSort Nothing            = ""
+unparseSort (Just SortByName)  = "by name"
+unparseSort (Just SortByTotal) = "by total"
+unparseSort (Just SortByStart) = "by start"
+
+unparseTitle :: Maybe Title -> String
+unparseTitle Nothing  = ""
+unparseTitle (Just t) = "as " ++ show t
 
 {-------------------------------------------------------------------------------
   Quasi-quoting
@@ -220,37 +259,3 @@ parseScriptString source input =
   case runParser pScript () source input of
     Left  err    -> fail (show err)
     Right script -> return script
-
-{-------------------------------------------------------------------------------
-  Unparsing
--------------------------------------------------------------------------------}
-
-unparseScript :: Script -> [String]
-unparseScript = concatMap unparseCommand
-
-unparseCommand :: Command -> [String]
-unparseCommand (Section title) = ["", title]
-unparseCommand (One eid title) = [unparseEventId eid ++ " " ++ unparseTitle title]
-unparseCommand (All f sort)    = ["all " ++ unparseFilter f ++ " " ++ unparseSort sort]
-unparseCommand (Sum f title)   = ["sum " ++ unparseFilter f ++ " " ++ unparseTitle title]
-
-unparseEventId :: EventId -> String
-unparseEventId EventGC           = "GC"
-unparseEventId (EventUser e _)   = e
-unparseEventId (EventThread tid) = show tid
-
-unparseTitle :: Maybe Title -> String
-unparseTitle Nothing  = ""
-unparseTitle (Just t) = "as " ++ t
-
-unparseSort :: Maybe EventSort -> String
-unparseSort Nothing            = ""
-unparseSort (Just SortByName)  = "by name"
-unparseSort (Just SortByTotal) = "by total"
-unparseSort (Just SortByStart) = "by start"
-
-unparseFilter :: EventFilter -> String
-unparseFilter (Is eid) = unparseEventId eid
-unparseFilter IsUser   = "user"
-unparseFilter IsThread = "thread"
-unparseFilter (Any fs) = "[" ++ intercalate "," (map unparseFilter fs) ++ "]"

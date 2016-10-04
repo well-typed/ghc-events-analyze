@@ -1,11 +1,11 @@
 .PHONY: svgs
 svgs: eventlogs
-	ghc-events-analyze -b 500 --script-timed nouser.script ex0-NT.eventlog
-	ghc-events-analyze -b 500 --script-timed nouser.script ex0-N1.eventlog
-	ghc-events-analyze -b 500 --script-timed nouser.script ex0-N2.eventlog
-	ghc-events-analyze -b 500 ex1-NT.eventlog
-	ghc-events-analyze -b 500 ex1-N1.eventlog
-	ghc-events-analyze -b 500 ex1-N2.eventlog
+	ghc-events-analyze -b 50 --script-timed nouser.script ex0-NT.eventlog
+	ghc-events-analyze -b 50 --script-timed nouser.script ex0-N1.eventlog
+	ghc-events-analyze -b 50 --script-timed nouser.script ex0-N2.eventlog
+	ghc-events-analyze -b 50 ex1-NT.eventlog
+	ghc-events-analyze -b 50 ex1-N1.eventlog
+	ghc-events-analyze -b 50 ex1-N2.eventlog
 
 .PHONY: eventlogs 
 eventlogs: \

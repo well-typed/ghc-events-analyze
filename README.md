@@ -1,7 +1,10 @@
 ghc-events-analyze
 ==================
 
-See [Performance profiling with ghc-events-analyze](http://www.well-typed.com/blog/2014/02/ghc-events-analyze/) for an introduction to this tool.
+See [Performance profiling with
+ghc-events-analyze](http://www.well-typed.com/blog/2014/02/ghc-events-analyze/)
+for an introduction to this tool. Below we describe some features that were
+introduced since the blog post.
 
 ## Controlling layout
 
@@ -26,3 +29,5 @@ ghc-events-analyze -b 500 --tick-every 50 --bucket-width 1 --border-width 0
 The results in something like
 
 ![](slicedfinely.png)
+
+## Windowing
