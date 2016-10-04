@@ -16,8 +16,7 @@ import Prelude hiding (log)
 import Control.Applicative ((<|>))
 import Control.Lens ((%=), (.=), at, use)
 import Control.Monad (forM_, when, void)
-import Data.Char (isSpace, isDigit)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Map.Strict (Map)
 import GHC.RTS.Events hiding (events)
 import qualified Data.Map.Strict as Map
@@ -244,7 +243,7 @@ initialEventAnalysis opts = EventAnalysis {
   , eventStarts       = error "eventStarts computed at the end"
   , _startup          = Nothing
   , _shutdown         = Nothing
-  , _inWindow         = null (optionsWindowEvent opts)
+  , _inWindow         = isNothing (optionsWindowEvent opts)
   }
 
 computeTotals :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp

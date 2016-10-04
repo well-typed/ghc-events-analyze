@@ -2,6 +2,7 @@
 module Main where
 
 import Control.Monad (when, forM_)
+import Data.Maybe (isNothing)
 import System.FilePath (replaceExtension, takeFileName)
 import Text.Parsec.String (parseFromFile)
 
@@ -40,8 +41,8 @@ main = do
 
         prefixAnalysisNumber :: Int -> String -> String
         prefixAnalysisNumber i filename
-          | null optionsWindowEvent = filename
-          | otherwise               = show i ++ "." ++ filename
+          | isNothing optionsWindowEvent = filename
+          | otherwise                    = show i ++ "." ++ filename
 
     forM_ (zip [0..] analyses) $ \ (i,analysis) -> do
 

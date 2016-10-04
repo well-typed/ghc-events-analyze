@@ -2,6 +2,7 @@
 
   * Fix bug in timeline rendering when using --tick-every
     (2016-10-04 Edsko de Vries <edsko@well-typed.com>)
+  * Backwards compatibility with older ghc
 
 0.2.3
 
