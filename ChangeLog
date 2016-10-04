@@ -1,4 +1,4 @@
-0.2.5
+0.2.3
 
   * Add new command line options: `--tick-every`, `--bucket-width`,
     `--bucket-height`, and `--border-width`. This allows to get both the
@@ -18,9 +18,9 @@
 
 0.2.1
 
-  * Slice time more finely, add sorting options for timed report,
-    more colours, support for ms on the timeline, use alternating colours
-    for background
+  * Various new features: slice time more finely, add sorting options for timed
+    report, more colours, support for ms on the timeline, use alternating
+    colours for background, support for windowing.
     (2014-12-06, Andrew Farmer <anfarmer@fb.com>)
   * Make sure _shutdown is always set, so that event logs from programs
     that terminated abnormally can still be visualized

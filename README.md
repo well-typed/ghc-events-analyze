@@ -8,7 +8,7 @@ introduced since the blog post.
 
 ## Controlling layout
 
-As of version 0.2.5, there are a number of options for controlling the layout.
+As of version 0.2.3, there are a number of options for controlling the layout.
 To slice time coarsely, as we did in the blog post, you can run
 
 ```
@@ -19,7 +19,8 @@ This results in something like
 
 ![](slicedcoarsely.png)
 
-To slice time more finely (this was the default for versions 0.2.1--0.2.4), you
+By default (in 0.2.0 and again from 0.2.3) time is split into 100 buckets. To
+slice time more finely (this was the default for versions 0.2.1 and 0.2.2), you
 can run
 
 ```
