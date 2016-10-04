@@ -31,3 +31,24 @@ The results in something like
 ![](slicedfinely.png)
 
 ## Windowing
+
+## Manual sorting of events
+
+If you want more control over how your events are sorted, you can give them
+a sorting index; instead of saying
+
+```
+traceEventIO "START <label>"
+...
+traceEventIO "STOP <label>"
+```
+
+use
+
+```
+traceEventIO "START <sortIndex> <label>"
+...
+traceEventIO "STOP <sortIndex> <label>"
+```
+
+Events will then be sorted by their `sortIndex`.

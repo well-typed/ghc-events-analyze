@@ -17,7 +17,7 @@ module GHC.RTS.Events.Analyze.Types (
   , RunningThreads
   , threadIds
   , Quantized(..)
-  , GroupId
+  , SortIndex
   , showEventId
   , isUserEvent
   , isThreadEvent
@@ -43,13 +43,22 @@ data EventId =
     -- > traceEventIO "START <label>"
     -- > ...
     -- > traceEventIO "STOP <label>"
-  | EventUser String GroupId
+  | EventUser String SortIndex
 
     -- | Threads
   | EventThread ThreadId
   deriving (Eq, Ord, Show)
 
-type GroupId = Int
+-- | Sort index
+--
+-- Events can have an optional sort index, which can be used to control the
+-- order in which events are sorted (the sort index itself is not shown
+-- in the reports). To use this, simply use
+--
+-- > traceEventIO "START <sortIndex> <label>"
+-- > ...
+-- > traceEventIO "STOP <sortIndex> <label>"
+type SortIndex = Int
 
 data TimelineGranularity = TimelineSeconds | TimelineMilliseconds
   deriving Show

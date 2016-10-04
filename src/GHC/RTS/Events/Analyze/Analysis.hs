@@ -59,7 +59,7 @@ analyze opts@Options{..} log =
     isWindowEvent :: EventId -> Bool
     isWindowEvent = case optionsWindowEvent of
                       [] -> const False
-                      nm -> (== parseGroupId nm)
+                      nm -> (== parseUserEvent nm)
 
     analyzeEvent :: Event -> State AnalysisState ()
     analyzeEvent (Event time spec) = do
@@ -85,13 +85,13 @@ analyze opts@Options{..} log =
     startId :: EventInfo -> Maybe EventId
     startId (RunThread tid)                                   = Just $ EventThread tid
     startId StartGC                                           = Just $ EventGC
-    startId (UserMessage (prefix optionsUserStart -> Just e)) = Just $ parseGroupId e
+    startId (UserMessage (prefix optionsUserStart -> Just e)) = Just $ parseUserEvent e
     startId _                                                 = Nothing
 
     stopId :: EventInfo -> Maybe EventId
     stopId (StopThread tid _)                               = Just $ EventThread tid
     stopId EndGC                                            = Just $ EventGC
-    stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ parseGroupId e
+    stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ parseUserEvent e
     stopId _                                                = Nothing
 
 ifInWindow :: State EventAnalysis () -> State EventAnalysis ()
@@ -115,11 +115,14 @@ recordShutdown :: Timestamp -> State EventAnalysis ()
 recordShutdown time =
     shutdown %= (\prevt'm -> let newtime = maybe time (max time) prevt'm in newtime `seq` Just newtime)
 
-parseGroupId :: String -> EventId
-parseGroupId s = case ds of
-                    [] -> EventUser s 0
-                    _  -> EventUser (dropWhile isSpace cs) (read ds)
-  where (ds,cs) = span isDigit s
+-- | Parse user event
+--
+-- If the event name starts with a digit, regard it as a 'SortIndex'.
+parseUserEvent :: String -> EventId
+parseUserEvent s =
+    case span isDigit s of
+      ([], _ ) -> EventUser s 0
+      (ds, cs) -> EventUser (dropWhile isSpace cs) (read ds)
 
 recordEventStart :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStart eid start = do
