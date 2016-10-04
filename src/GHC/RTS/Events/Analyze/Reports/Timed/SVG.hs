@@ -160,7 +160,7 @@ block Options{..} i =
 
 timeline :: Options -> Int -> Timestamp -> D
 timeline Options{..} numBuckets bucketSize =
-    mconcat [ timelineBlock b # D.translateX (fromIntegral tb * timelineBlockWidth)
+    mconcat [ timelineBlock tb # D.translateX (fromIntegral tb * timelineBlockWidth)
             | -- bucket number
               b <- [0 .. numBuckets - 1]
               -- timeline block number, index within this timeline block @(0 .. optionsTickEvery - 1)@

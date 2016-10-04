@@ -24,7 +24,7 @@ slice time more finely (this was the default for versions 0.2.1 and 0.2.2), you
 can run
 
 ```
-ghc-events-analyze -b 500 --tick-every 50 --bucket-width 1 --border-width 0
+ghc-events-analyze -b 500 --tick-every 10 --bucket-width 1 --border-width 0
 ```
 
 The results in something like
