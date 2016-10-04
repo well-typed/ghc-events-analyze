@@ -1,32 +1,44 @@
 {-# LANGUAGE TemplateHaskell #-}
 module GHC.RTS.Events.Analyze.Types (
+    -- * Events
     EventId(..)
-  , Options(..)
+  , SortIndex
+  , isUserEvent
+  , isThreadEvent
+  , parseUserEvent
+  , showEventId
+    -- * Options
   , TimelineGranularity(..)
-  , AnalysisState(..)
-  , runningThreads
-  , windowAnalyses
+  , Options(..)
+    -- * Analysis state
+  , RunningThreads
+  , threadIds
+  , ThreadInfo
   , EventAnalysis(..)
+  , AnalysisState(..)
+    -- ** EventAnalysis lenses
   , events
   , windowThreadInfo
   , openEvents
   , startup
   , shutdown
   , inWindow
-  , ThreadInfo
-  , RunningThreads
-  , threadIds
+    -- ** AnalysisState lenses
+  , runningThreads
+  , windowAnalyses
+    -- * Analysis result
   , Quantized(..)
-  , SortIndex
-  , showEventId
-  , isUserEvent
-  , isThreadEvent
   ) where
 
 import Control.Lens (makeLenses)
+import Data.Char
 import Data.Map (Map)
 import GHC.RTS.Events (Timestamp, ThreadId)
 import qualified Data.Map as Map
+
+{-------------------------------------------------------------------------------
+  Event identifiers
+-------------------------------------------------------------------------------}
 
 -- | Event identifiers
 --
@@ -60,6 +72,38 @@ data EventId =
 -- > traceEventIO "STOP <sortIndex> <label>"
 type SortIndex = Int
 
+isUserEvent :: EventId -> Bool
+isUserEvent (EventUser{}) = True
+isUserEvent _             = False
+
+isThreadEvent :: EventId -> Bool
+isThreadEvent (EventThread _) = True
+isThreadEvent _               = False
+
+-- | Parse user event
+--
+-- If the event name starts with a digit, regard it as a 'SortIndex'.
+parseUserEvent :: String -> EventId
+parseUserEvent s =
+    case span isDigit s of
+      ([], _ ) -> EventUser s 0
+      (ds, cs) -> EventUser (dropWhile isSpace cs) (read ds)
+
+-- | Show an event ID given thread info
+--
+-- The argument is typically either `__threadInfo` from `EventAnalysis` or
+-- `quantThreadInfo` from `Quantized`.
+showEventId :: Map ThreadId (a, a, String) -> EventId -> String
+showEventId _    EventGC             = "GC"
+showEventId _    (EventUser event _) = event
+showEventId info (EventThread tid)   = case Map.lookup tid info of
+                                         Just (_, _, l) -> l
+                                         Nothing        -> show tid
+
+{-------------------------------------------------------------------------------
+  Options
+-------------------------------------------------------------------------------}
+
 data TimelineGranularity = TimelineSeconds | TimelineMilliseconds
   deriving Show
 
@@ -68,7 +112,7 @@ data Options = Options {
     optionsGenerateTimedSVG   :: Bool
   , optionsGenerateTimedText  :: Bool
   , optionsGenerateTotalsText :: Bool
-  , optionsWindowEvent        :: String
+  , optionsWindowEvent        :: Maybe EventId
   , optionsNumBuckets         :: Int
   , optionsUserStart          :: String
   , optionsUserStop           :: String
@@ -83,6 +127,10 @@ data Options = Options {
   , optionsInput              :: FilePath
   }
   deriving Show
+
+{-------------------------------------------------------------------------------
+  Analysis state
+-------------------------------------------------------------------------------}
 
 -- | Map of currently running threads to their labels
 type RunningThreads = Map ThreadId String
@@ -154,6 +202,10 @@ data AnalysisState = AnalysisState {
 
 $(makeLenses ''AnalysisState)
 
+{-------------------------------------------------------------------------------
+  Analysis result
+-------------------------------------------------------------------------------}
+
 -- | Quantization splits the total time up into @n@ buckets. We record for each
 -- event and each bucket what percentage of that bucket the event used. A
 -- missing entry denotes 0.
@@ -172,21 +224,3 @@ data Quantized = Quantized {
   , quantBucketSize :: Timestamp
   }
   deriving Show
-
--- | Show an event ID given the specified options (for renaming events)
--- and information about threads (either `__threadInfo` from `EventAnalysis` or
--- `quantThreadInfo` from `Quantized`).
-showEventId :: Map ThreadId (a, a, String) -> EventId -> String
-showEventId _     EventGC          = "GC"
-showEventId _    (EventUser event _) = event
-showEventId info (EventThread tid) = case Map.lookup tid info of
-                                       Just (_, _, l) -> l
-                                       Nothing        -> show tid
-
-isUserEvent :: EventId -> Bool
-isUserEvent (EventUser{}) = True
-isUserEvent _             = False
-
-isThreadEvent :: EventId -> Bool
-isThreadEvent (EventThread _) = True
-isThreadEvent _               = False

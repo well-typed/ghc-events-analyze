@@ -43,11 +43,10 @@ parserOptions =
               long "totals"
             , help "Generate totals report"
             ])
-      <*> (strOption $ mconcat [
+      <*> (optional . option (parseUserEvent <$> str) $ mconcat [
               long "window"
             , metavar "NAME"
             , help "Events named NAME act to mark bounds of visualization window."
-            , value ""
             ])
       <*> (option auto $ mconcat [
               long "buckets"

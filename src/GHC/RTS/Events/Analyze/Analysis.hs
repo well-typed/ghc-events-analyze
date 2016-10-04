@@ -58,8 +58,8 @@ analyze opts@Options{..} log =
   where
     isWindowEvent :: EventId -> Bool
     isWindowEvent = case optionsWindowEvent of
-                      [] -> const False
-                      nm -> (== parseUserEvent nm)
+                      Nothing -> const False
+                      Just ev -> (== ev)
 
     analyzeEvent :: Event -> State AnalysisState ()
     analyzeEvent (Event time spec) = do
@@ -114,15 +114,6 @@ recordStartup time = startup %= (<|> Just time)
 recordShutdown :: Timestamp -> State EventAnalysis ()
 recordShutdown time =
     shutdown %= (\prevt'm -> let newtime = maybe time (max time) prevt'm in newtime `seq` Just newtime)
-
--- | Parse user event
---
--- If the event name starts with a digit, regard it as a 'SortIndex'.
-parseUserEvent :: String -> EventId
-parseUserEvent s =
-    case span isDigit s of
-      ([], _ ) -> EventUser s 0
-      (ds, cs) -> EventUser (dropWhile isSpace cs) (read ds)
 
 recordEventStart :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStart eid start = do
