@@ -57,7 +57,7 @@ ex1-N2.eventlog: ex1.hs
 clean:
 	rm -f ex*.eventlog ex*.svg
 	rm -f *.o *.hi
-	rm -f ex0 ex1 
+	rm -f ex0 ex1 ex0-windowed 
 	rm -f *.totals.txt *.timed.txt
 
 # vi:set noexpandtab:
