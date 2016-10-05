@@ -59,23 +59,36 @@ example.1.timed.svg
 example.2.timed.svg
 ```
 
-## Manual sorting of events
+## Event subscripts
 
-If you want more control over how your events are sorted, you can give them
-a sorting index; instead of saying
+Suppose you have multiple events that should all show up as `request` in the
+generated reports, but should nonetheless be distinguished from each other.
+There are two ways to do this. One is to call the events `request0`, `request1`,
+etc.
 
 ```
-traceEventIO "START <label>"
+traceEventIO "START request0"
 ...
-traceEventIO "STOP <label>"
-```
+traceEventIO "STOP request0"
 
-use
-
-```
-traceEventIO "START <sortIndex> <label>"
+traceEventIO "START request1"
 ...
-traceEventIO "STOP <sortIndex> <label>"
+traceEventIO "STOP request1"
 ```
 
-Events will then be sorted by their `sortIndex`.
+and then use the `ghc-events-analyze` DSL to add some renaming instructions.
+However, that might get tedious if there are a lof of these. Alternatively,
+you can use event subscripts, like this:
+
+```
+traceEventIO "START 0 request"
+...
+traceEventIO "STOP 0 request"
+
+traceEventIO "START 1 request"
+...
+traceEventIO "STOP 1 request"
+```
+
+These subscripts are used to distinguish events, but do not show up in the
+report.

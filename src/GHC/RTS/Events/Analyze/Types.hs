@@ -2,7 +2,8 @@
 module GHC.RTS.Events.Analyze.Types (
     -- * Events
     EventId(..)
-  , SortIndex
+  , EventLabel
+  , EventSubscript
   , isUserEvent
   , isThreadEvent
   , parseUserEvent
@@ -52,25 +53,28 @@ data EventId =
     --
     -- To use user events, do
     --
-    -- > traceEventIO "START <label>"
+    -- > traceEventIO "START <subscript> <label>"
     -- > ...
-    -- > traceEventIO "STOP <label>"
-  | EventUser String SortIndex
+    -- > traceEventIO "STOP <subscript> <label>"
+    --
+    -- If the <subscript> is omitted it is assumed to be 0
+    -- (see 'EventSubscript' for details).
+  | EventUser EventLabel EventSubscript
 
     -- | Threads
   | EventThread ThreadId
   deriving (Eq, Ord, Show)
 
--- | Sort index
+-- | The user-readable name for an event
+type EventLabel = String
+
+-- | Event subscript
 --
--- Events can have an optional sort index, which can be used to control the
--- order in which events are sorted (the sort index itself is not shown
--- in the reports). To use this, simply use
+-- The combination of the 'EventLabel' and the 'EventSubscript' uniquely
+-- identifies an event; however, only the 'EventLabel' is shown in the report.
 --
--- > traceEventIO "START <sortIndex> <label>"
--- > ...
--- > traceEventIO "STOP <sortIndex> <label>"
-type SortIndex = Int
+-- When it is not required, the subscript can simply be set to 0.
+type EventSubscript = Int
 
 isUserEvent :: EventId -> Bool
 isUserEvent (EventUser{}) = True
@@ -82,7 +86,7 @@ isThreadEvent _               = False
 
 -- | Parse user event
 --
--- If the event name starts with a digit, regard it as a 'SortIndex'.
+-- If the event name starts with a digit, regard it as a 'EventSubscript'.
 parseUserEvent :: String -> EventId
 parseUserEvent s =
     case span isDigit s of
