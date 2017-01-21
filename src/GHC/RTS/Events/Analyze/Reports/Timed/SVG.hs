@@ -4,7 +4,7 @@ module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
     writeReport
   ) where
 
-import Data.Maybe (catMaybes)
+import Data.List (foldl')
 import Data.Monoid ((<>))
 import Diagrams.Backend.SVG (B, renderSVG)
 import Diagrams.Prelude (QDiagram, Colour, V2, N, Any, (#), (|||))
@@ -15,6 +15,7 @@ import qualified Data.Map                   as Map
 import qualified Diagrams.Prelude           as D
 import qualified Graphics.SVGFonts.Fonts    as F
 import qualified Graphics.SVGFonts.Text     as F
+import qualified Diagrams.TwoD.Text as TT
 
 #if !MIN_VERSION_base(4,8,0)
 import Data.Monoid (mempty, mconcat)
@@ -24,7 +25,7 @@ import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Reports.Timed hiding (writeReport)
 
 writeReport :: Options -> Quantized -> Report -> FilePath -> IO ()
-writeReport options quantized report path =
+writeReport options quantized report path = do
   uncurry (renderSVG path) $ renderReport options quantized report
 
 type D        = QDiagram B V2 (N B) Any
@@ -44,7 +45,6 @@ renderReport options@Options{..}
     rendered = D.vcat $ map (uncurry renderSVGFragment)
                       $ zip (cycle [D.white, D.ghostwhite])
                             (SVGTimeline : fragments)
-
     fragments :: [SVGFragment]
     fragments = map (renderFragment options) $ zip report (cycle allColors)
 
@@ -53,7 +53,7 @@ renderReport options@Options{..}
       padHeader (2 * optionsBucketHeight) title
     renderSVGFragment bg (SVGLine header blocks) =
       -- Add empty block at the start so that the whole thing doesn't shift up
-      (padHeader optionsBucketHeight header ||| (blocks <> (block options 0 # D.lw D.none)))
+      (padHeader optionsBucketHeight (renderText header (optionsBucketHeight + 2)) ||| (blocks <> (block options 0 # D.lw D.none)))
         `D.atop`
       (D.rect lineWidth optionsBucketHeight # D.alignL # D.fc bg # D.lw D.none)
     renderSVGFragment _ SVGTimeline =
@@ -68,29 +68,37 @@ renderReport options@Options{..}
          D.translateX (0.5 * optionsBucketWidth) h
       <> D.rect headerWidth height # D.alignL # D.lw D.none
 
+    -- optimisation: find the longest text header, render
+    -- it then check the rendered size and use that for
+    -- width; it does not necessarily mean it's the right
+    -- width to use but it's good enough considering speed
+    -- trade-off
     headerWidth :: Double
-    headerWidth = optionsBucketWidth -- extra padding
-                + (maximum . catMaybes . map headerWidthOf $ fragments)
+    headerWidth = optionsBucketWidth + widestHeader -- extra padding
 
-    headerWidthOf :: SVGFragment -> Maybe Double
-    headerWidthOf (SVGLine header _) = Just (D.width header)
-    headerWidthOf _                  = Nothing
+    widestHeader :: Double
+    widestHeader =
+      let headers = [ (header, length header) | SVGLine header _ <- fragments ]
+          (maxHeader, _) = foldl' (\(s, l) (s', l') ->
+                                     if l' > l then (s', l') else (s, l))
+                                  ("", 0) headers
+      in D.width $! mkSVGText maxHeader (optionsBucketHeight + 2)
 
 data SVGFragment =
     SVGTimeline
   | SVGSection D
-  | SVGLine D D
+  | SVGLine String D
 
 renderFragment :: Options -> (ReportFragment, Colour Double) -> SVGFragment
 renderFragment options@Options{..} = go
   where
     go :: (ReportFragment, Colour Double) -> SVGFragment
-    go (ReportSection title,_) = SVGSection (renderText title (optionsBucketHeight + 2))
+    go (ReportSection title,_) = SVGSection (mkSVGText title (optionsBucketHeight + 2))
     go (ReportLine line,c)     = uncurry SVGLine $ renderLine options c line
 
-renderLine :: Options -> Colour Double -> ReportLine -> (D, D)
+renderLine :: Options -> Colour Double -> ReportLine -> (String, D)
 renderLine options@Options{..} lc line@ReportLineData{..} =
-    ( renderText lineHeader (optionsBucketHeight + 2)
+    ( lineHeader -- renderText lineHeader (optionsBucketHeight + 2)
     , blocks lc <> bgBlocks options lineBackground
     )
   where
@@ -119,22 +127,33 @@ bgBlocks options = go
       | b <- [fr .. to]
       ]
 
-renderText :: String -> Double -> D
-renderText str size =
-    D.stroke textSVG # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
+-- | Create a text diagram that is sized (as opposed to 'renderText').
+-- The problem with this function is that it's *extremely* slow and
+-- memory hungry in comparison to something simple like 'TT.text'.
+-- This function should therefore be used as little as possible.
+mkSVGText :: String -> Double -> D
+mkSVGText str size =
+  D.stroke textSVG # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
   where
     textSVG = F.textSVG' (textOpts size) str
 
 textOpts :: Double -> TextOpts Double
 textOpts size =
     TextOpts {
-        textFont   = F.lin
+        textFont   = F.bit
       , mode       = F.INSIDE_H
       , spacing    = F.KERN
       , underline  = False
       , textWidth  = 0 -- not important
       , textHeight = size
       }
+
+-- | Render text with diagram's own engine. The issue with this text
+-- is that it has no size: we can not tell how wide it is. For a
+-- sized-text see 'mkSVGText'.
+renderText :: String -> Double -> D
+renderText str size =
+  TT.fontSizeL (size / 2) $ TT.alignedText 0 0.5 str
 
 -- | Translate quantized value to opacity
 --
@@ -160,27 +179,43 @@ block Options{..} i =
 
 timeline :: Options -> Int -> Timestamp -> D
 timeline Options{..} numBuckets bucketSize =
-    mconcat [ timelineBlock tb # D.translateX (fromIntegral tb * timelineBlockWidth)
-            | -- bucket number
-              b <- [0 .. numBuckets - 1]
-              -- timeline block number, index within this timeline block @(0 .. optionsTickEvery - 1)@
-            , let (tb, tidx) = b `divMod` optionsTickEvery
-              -- we show the timeline block when the index is 0
-            , tidx == 0
-            ]
+   let timeBlocks = [ tb
+                    | b <- [0 .. numBuckets - 1]
+                    -- timeline block number, index within this timeline block @(0 .. optionsTickEvery - 1)@
+                    , let (tb, tidx) = b `divMod` optionsTickEvery
+                    -- we show the timeline block when the index is 0
+                    , tidx == 0 ]
+
+   -- memoize the rendering of the last time label: if it's the same
+   -- for the next 10 displays, why render it 10 times? Text is expensive.
+   in case foldl' (\acc tb -> timelineBlock acc tb) mempty timeBlocks of
+     (_, _, fullDiag) -> fullDiag
+
   where
     timelineBlockWidth :: Double
     timelineBlockWidth = fromIntegral optionsTickEvery * optionsBucketWidth
 
+    moveAlongTimeline :: Int -> D -> D
+    moveAlongTimeline tb = D.translateX (fromIntegral tb * timelineBlockWidth)
+
     -- Single block on the time-line; every 5 blocks a larger line and a time
     -- label; for the remainder just a shorter line
-    timelineBlock :: Int -> D
-    timelineBlock tb
-      | tb `rem` 5 == 0
-          = D.strokeLine bigLine   # D.lw (D.local 0.5)
-         <> (renderText (bucketTime tb) optionsBucketHeight # D.translateY (optionsBucketHeight - 2))
-      | otherwise
-          = D.strokeLine smallLine # D.lw (D.local 0.5) # D.translateY 1
+    timelineBlock :: (String, D, D) -> Int -> (String, D, D)
+    timelineBlock (lastStr, lastNumD, fullDiag) tb
+      | tb `rem` 5 == 0 =
+        let btime = bucketTime tb
+            myNum = if lastStr == btime
+                    then lastNumD
+                    else mkSVGText btime optionsBucketHeight # D.translateY (optionsBucketHeight - 2)
+            myDiag = D.strokeLine bigLine # D.lw (D.local 0.5) <> myNum
+        in (btime, myNum, fullDiag <> myDiag # moveAlongTimeline tb)
+      | otherwise =
+        let myDiag :: D
+            myDiag = D.strokeLine smallLine
+                     # D.lw (D.local 0.5)
+                     # D.translateY 1
+                     # moveAlongTimeline tb
+        in (lastStr, lastNumD, fullDiag <> myDiag)
 
     bucketTime :: Int -> String
     bucketTime tb = case optionsGranularity of

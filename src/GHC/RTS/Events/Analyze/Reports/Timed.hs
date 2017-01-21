@@ -123,7 +123,7 @@ writeReport' report h =
 
     reportLine :: ReportLine -> [String]
     reportLine ReportLineData{..} =
-      lineHeader : map showValue (unsparse 0 lineValues)
+      lineHeader : unsparse "0.00" (Map.map showValue lineValues)
 
     showValue :: Double -> String
     showValue = printf "%0.2f"
