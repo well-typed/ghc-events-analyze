@@ -61,6 +61,7 @@ data NameFilter a
     -- Examples
     -- > "worker.*"
   | Include a
+  | IncludeAll
   deriving (Show,Functor,Foldable,Traversable)
 
 -- | Event filters
@@ -150,6 +151,7 @@ data Command a =
 matchesFilter :: EventFilter (ThreadId -> Bool) -> EventId -> Bool
 matchesFilter (Is eid') eid = eid' == eid
 matchesFilter  IsUser    eid = isUserEvent eid
+matchesFilter (IsThread IncludeAll) (isThreadEvent -> Just _) = True
 matchesFilter (IsThread (Include r)) (isThreadEvent -> Just tid) = r tid
 matchesFilter (IsThread (Exclude r)) e = not$ matchesFilter (IsThread$ Include r) e
 matchesFilter IsThread{} _ = False
@@ -226,7 +228,7 @@ pTitle = optionMaybe (reserved "as" *> stringLiteral)
 
 pNameFilter :: Parser (NameFilter String)
 pNameFilter = f <$> optional stringLiteral where
-  f Nothing = Include ""
+  f Nothing = IncludeAll
   f (Just ('-' : nameRegexp)) = Exclude nameRegexp
   f (Just nameRegexp) = Include nameRegexp
 
@@ -251,12 +253,13 @@ unparseEventId (EventThread tid) = show tid
 unparseFilter :: EventFilter String -> String
 unparseFilter (Is eid) = unparseEventId eid
 unparseFilter IsUser   = "user"
-unparseFilter (IsThread nameFilter) = "thread " ++ unparseNameFilter nameFilter
+unparseFilter (IsThread nameFilter) = "thread" ++ unparseNameFilter nameFilter
 unparseFilter (Any fs) = "[" ++ intercalate "," (map unparseFilter fs) ++ "]"
 
 unparseNameFilter :: NameFilter String -> String
-unparseNameFilter (Include s) = s
-unparseNameFilter (Exclude s) = '-' : s
+unparseNameFilter (IncludeAll) = ""
+unparseNameFilter (Include s) = ' ' : s
+unparseNameFilter (Exclude s) = ' ' : '-' : s
 
 unparseSort :: Maybe EventSort -> String
 unparseSort Nothing            = ""
