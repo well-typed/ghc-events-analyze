@@ -17,10 +17,10 @@ module GHC.RTS.Events.Analyze.Types (
   , ThreadInfo
   , EventAnalysis(..)
   , AnalysisState(..)
+  , mkThreadFilter
     -- ** EventAnalysis lenses
   , events
   , windowThreadInfo
-  , threadNameGetter
   , openEvents
   , startup
   , shutdown
@@ -38,6 +38,7 @@ import Data.Char
 import Data.Map (Map)
 import GHC.RTS.Events (Timestamp, ThreadId)
 import qualified Data.Map as Map
+import Text.Regex.PCRE
 
 {-------------------------------------------------------------------------------
   Event identifiers
@@ -199,15 +200,18 @@ data EventAnalysis = EventAnalysis {
 
 $(makeLenses ''EventAnalysis)
 
+mkThreadFilter :: EventAnalysis -> String -> ThreadId -> Bool
+mkThreadFilter analysis regex =
+  let r :: Regex = makeRegex regex
+      m = Map.fromList [(tid, matchTest r tn) | (tid, (_,_,tn)) <- Map.toList (_windowThreadInfo analysis)]
+  in \tid -> m ^?! ix tid
+
 -- | State while running an analysis. Keeps track of currently running threads,
 -- and appends an 'EventAnalysis' per window.
 data AnalysisState = AnalysisState {
     _runningThreads :: RunningThreads
   , _windowAnalyses :: [EventAnalysis]
 }
-
-threadNameGetter :: ThreadId -> Traversal' EventAnalysis String
-threadNameGetter tid = windowThreadInfo . ix tid . _3
 
 $(makeLenses ''AnalysisState)
 

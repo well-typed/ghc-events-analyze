@@ -29,7 +29,6 @@ import Language.Haskell.TH.Syntax
 import Text.Parsec hiding (optional)
 import Text.Parsec.Language (haskellDef)
 import qualified Text.Parsec.Token as P
-import Text.Regex.Base
 
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>), (<*>), (*>), (<*), pure)
@@ -148,15 +147,13 @@ data Command a =
   Script execution
 -------------------------------------------------------------------------------}
 
-matchesFilter
-  :: RegexLike regex String
-  => (ThreadId -> String) -> EventFilter regex -> EventId -> Bool
-matchesFilter _  (Is eid') eid = eid' == eid
-matchesFilter _  IsUser    eid = isUserEvent eid
-matchesFilter rt (IsThread (Include r)) (isThreadEvent -> Just tid) = matchTest r (rt tid)
-matchesFilter rt (IsThread (Exclude r)) e = not$ matchesFilter rt (IsThread$ Include r) e
-matchesFilter _ IsThread{} _ = False
-matchesFilter rt (Any fs) eid = any (\x -> matchesFilter rt x eid) fs
+matchesFilter :: EventFilter (ThreadId -> Bool) -> EventId -> Bool
+matchesFilter (Is eid') eid = eid' == eid
+matchesFilter  IsUser    eid = isUserEvent eid
+matchesFilter (IsThread (Include r)) (isThreadEvent -> Just tid) = r tid
+matchesFilter (IsThread (Exclude r)) e = not$ matchesFilter (IsThread$ Include r) e
+matchesFilter IsThread{} _ = False
+matchesFilter (Any fs) eid = any (`matchesFilter` eid) fs
 
 {-------------------------------------------------------------------------------
   Lexical analysis
