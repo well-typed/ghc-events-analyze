@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# OPTIONS_GHC -w -W #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE CPP #-}
@@ -17,13 +21,15 @@ module GHC.RTS.Events.Analyze.Script (
   , scriptQQ
   ) where
 
+import Control.Applicative (optional)
 import Data.List (intercalate)
 import Language.Haskell.TH.Lift (deriveLiftMany)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax
-import Text.Parsec
+import Text.Parsec hiding (optional)
 import Text.Parsec.Language (haskellDef)
 import qualified Text.Parsec.Token as P
+import Text.Regex.Base
 
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>), (<*>), (*>), (<*), pure)
@@ -40,13 +46,26 @@ import GHC.RTS.Events.Analyze.Types
 -------------------------------------------------------------------------------}
 
 -- | A script is used to drive the construction of reports
-type Script = [Command]
+type Script a = [Command a]
 
 -- | Title of a section of an event
 type Title = String
 
+-- | A positive (Include) or negative (Exclude) filter
+data NameFilter a
+  =
+    -- | Negative filter
+    -- Examples
+    -- > "-finalizer.*"
+    Exclude a
+    -- | Positive filter
+    -- Examples
+    -- > "worker.*"
+  | Include a
+  deriving (Show,Functor,Foldable,Traversable)
+
 -- | Event filters
-data EventFilter =
+data EventFilter a =
     -- | A single event
     --
     -- Examples
@@ -65,14 +84,16 @@ data EventFilter =
     --
     -- Example
     -- > thread
-  | IsThread
+    -- > thread "!finalizer"
+  | IsThread (NameFilter a)
 
     -- | Logical or
     --
     -- Example
     -- > [GC, "foo", 5]
-  | Any [EventFilter]
-  deriving Show
+  | Any [EventFilter a]
+  deriving (Functor, Foldable, Traversable, Show)
+
 
 -- | Sorting
 data EventSort =
@@ -95,7 +116,7 @@ data EventSort =
   deriving Show
 
 -- | Commands
-data Command =
+data Command a =
     -- | Start a new section
     --
     -- Example
@@ -113,24 +134,29 @@ data Command =
     -- Examples
     -- > user by total  -- all user events, sorted
     -- > [4, 2, 3]      -- thread events 4, 2 and 3, in that order
-  | All EventFilter (Maybe EventSort)
+  | All (EventFilter a) (Maybe EventSort)
 
     -- | Sum over the specified events
     --
     -- Example
     -- > sum user
-  | Sum EventFilter (Maybe Title)
-  deriving Show
+  | Sum (EventFilter a) (Maybe Title)
+  deriving (Functor, Foldable, Traversable, Show)
+
 
 {-------------------------------------------------------------------------------
   Script execution
 -------------------------------------------------------------------------------}
 
-matchesFilter :: EventFilter -> EventId -> Bool
-matchesFilter (Is eid') eid = eid' == eid
-matchesFilter IsUser    eid = isUserEvent eid
-matchesFilter IsThread  eid = isThreadEvent eid
-matchesFilter (Any fs)  eid = or (map (`matchesFilter` eid) fs)
+matchesFilter
+  :: RegexLike regex String
+  => (ThreadId -> String) -> EventFilter regex -> EventId -> Bool
+matchesFilter _  (Is eid') eid = eid' == eid
+matchesFilter _  IsUser    eid = isUserEvent eid
+matchesFilter rt (IsThread (Include r)) (isThreadEvent -> Just tid) = matchTest r (rt tid)
+matchesFilter rt (IsThread (Exclude r)) e = not$ matchesFilter rt (IsThread$ Include r) e
+matchesFilter _ IsThread{} _ = False
+matchesFilter rt (Any fs) eid = any (\x -> matchesFilter rt x eid) fs
 
 {-------------------------------------------------------------------------------
   Lexical analysis
@@ -169,10 +195,10 @@ whiteSpace    = P.whiteSpace    lexer
 
 type Parser a = Parsec String () a
 
-pScript :: Parser Script
+pScript :: Parser (Script String)
 pScript = whiteSpace *> many1 pCommand <* eof
 
-pCommand :: Parser Command
+pCommand :: Parser (Command String)
 pCommand = (Section <$> (reserved "section" *> stringLiteral))
        <|> (One     <$> pEventId                         <*> pTitle)
        <|> (Sum     <$> (reserved "sum" *> pEventFilter) <*> pTitle)
@@ -185,10 +211,10 @@ pEventId =  (EventUser     <$> stringLiteral <*> pure 0 <?> "user event")
   where
     pThreadId = fromIntegral <$> natural
 
-pEventFilter :: Parser EventFilter
+pEventFilter :: Parser (EventFilter String)
 pEventFilter =  (Is             <$> pEventId)
             <|> (const IsUser   <$> reserved "user")
-            <|> (const IsThread <$> reserved "thread")
+            <|> (IsThread <$> (reserved "thread" *> pNameFilter))
             <|> (Any            <$> (squares $ commaSep1 pEventFilter))
 
 pEventSort :: Parser (Maybe EventSort)
@@ -201,14 +227,20 @@ pEventSort = optionMaybe $ reserved "by" *> (
 pTitle :: Parser (Maybe Title)
 pTitle = optionMaybe (reserved "as" *> stringLiteral)
 
+pNameFilter :: Parser (NameFilter String)
+pNameFilter = f <$> optional stringLiteral where
+  f Nothing = Include ""
+  f (Just ('-' : nameRegexp)) = Exclude nameRegexp
+  f (Just nameRegexp) = Include nameRegexp
+
 {-------------------------------------------------------------------------------
   Unparsing
 -------------------------------------------------------------------------------}
 
-unparseScript :: Script -> [String]
+unparseScript :: Script String -> [String]
 unparseScript = concatMap unparseCommand
 
-unparseCommand :: Command -> [String]
+unparseCommand :: Command String -> [String]
 unparseCommand (Section title) = ["", "section " ++ show title]
 unparseCommand (One eid title) = [unparseEventId eid ++ " " ++ unparseTitle title]
 unparseCommand (Sum f title)   = ["sum " ++ unparseFilter f ++ " " ++ unparseTitle title]
@@ -219,11 +251,15 @@ unparseEventId EventGC           = "GC"
 unparseEventId (EventUser e _)   = show e
 unparseEventId (EventThread tid) = show tid
 
-unparseFilter :: EventFilter -> String
+unparseFilter :: EventFilter String -> String
 unparseFilter (Is eid) = unparseEventId eid
 unparseFilter IsUser   = "user"
-unparseFilter IsThread = "thread"
+unparseFilter (IsThread nameFilter) = "thread " ++ unparseNameFilter nameFilter
 unparseFilter (Any fs) = "[" ++ intercalate "," (map unparseFilter fs) ++ "]"
+
+unparseNameFilter :: NameFilter String -> String
+unparseNameFilter (Include s) = s
+unparseNameFilter (Exclude s) = '-' : s
 
 unparseSort :: Maybe EventSort -> String
 unparseSort Nothing            = ""
@@ -239,7 +275,7 @@ unparseTitle (Just t) = "as " ++ show t
   Quasi-quoting
 -------------------------------------------------------------------------------}
 
-$(deriveLiftMany [''EventId, ''EventFilter, ''EventSort, ''Command])
+$(deriveLiftMany [''EventId, ''EventFilter, ''NameFilter, ''EventSort, ''Command])
 
 #if !MIN_VERSION_template_haskell(2,10,0)
 instance Lift Word32 where
@@ -254,7 +290,7 @@ scriptQQ = QuasiQuoter {
   , quoteDec  = \_ -> fail "Cannot use script as a declaration"
   }
 
-parseScriptString :: Monad m => String -> String -> m Script
+parseScriptString :: Monad m => String -> String -> m (Script String)
 parseScriptString source input =
   case runParser pScript () source input of
     Left  err    -> fail (show err)

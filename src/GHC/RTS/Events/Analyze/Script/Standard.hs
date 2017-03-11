@@ -6,7 +6,7 @@ module GHC.RTS.Events.Analyze.Script.Standard (
 
 import GHC.RTS.Events.Analyze.Script
 
-defaultScriptTotals :: Script
+defaultScriptTotals :: Script String
 defaultScriptTotals = [scriptQQ|
     GC
 
@@ -19,7 +19,7 @@ defaultScriptTotals = [scriptQQ|
     sum thread
   |]
 
-defaultScriptTimed :: Script
+defaultScriptTimed :: Script String
 defaultScriptTimed = [scriptQQ|
     GC
 

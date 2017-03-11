@@ -6,11 +6,13 @@ module GHC.RTS.Events.Analyze.Reports.Totals (
   , writeReport
   ) where
 
+import Control.Lens((^.))
 import Data.Function (on)
 import Data.List (sortBy, intercalate)
 import GHC.RTS.Events (Timestamp)
 import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
+import Text.Regex.PCRE
 import qualified Data.Map as Map
 
 import GHC.RTS.Events.Analyze.Analysis
@@ -40,10 +42,10 @@ data ReportLine = ReportLineData {
   Report generation
 -------------------------------------------------------------------------------}
 
-createReport :: EventAnalysis -> Script -> Report
+createReport :: EventAnalysis -> Script Regex -> Report
 createReport analysis@EventAnalysis{..} = concatMap go
   where
-    go :: Command -> [ReportFragment]
+    go :: Command Regex -> [ReportFragment]
     go (Section title) =
       [ReportSection title]
     go (One eid title) =
@@ -67,8 +69,8 @@ createReport analysis@EventAnalysis{..} = concatMap go
     sorted Nothing     = id
     sorted (Just sort) = sortBy (compareEventIds analysis sort `on` fst)
 
-    filtered :: EventFilter -> [(EventId, Timestamp)]
-    filtered f = filter (matchesFilter f . fst) (Map.toList eventTotals)
+    filtered :: EventFilter Regex -> [(EventId, Timestamp)]
+    filtered f = filter (matchesFilter ((analysis^.) . threadNameGetter) f . fst) (Map.toList eventTotals)
 
 sumLines :: Maybe Title -> [ReportLine] -> ReportLine
 sumLines title qs = ReportLineData {

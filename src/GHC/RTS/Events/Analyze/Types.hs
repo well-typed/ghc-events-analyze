@@ -20,6 +20,7 @@ module GHC.RTS.Events.Analyze.Types (
     -- ** EventAnalysis lenses
   , events
   , windowThreadInfo
+  , threadNameGetter
   , openEvents
   , startup
   , shutdown
@@ -29,9 +30,10 @@ module GHC.RTS.Events.Analyze.Types (
   , windowAnalyses
     -- * Analysis result
   , Quantized(..)
+  , ThreadId
   ) where
 
-import Control.Lens (makeLenses)
+import Control.Lens
 import Data.Char
 import Data.Map (Map)
 import GHC.RTS.Events (Timestamp, ThreadId)
@@ -80,9 +82,9 @@ isUserEvent :: EventId -> Bool
 isUserEvent (EventUser{}) = True
 isUserEvent _             = False
 
-isThreadEvent :: EventId -> Bool
-isThreadEvent (EventThread _) = True
-isThreadEvent _               = False
+isThreadEvent :: EventId -> Maybe ThreadId
+isThreadEvent (EventThread tid) = Just tid
+isThreadEvent _                 = Nothing
 
 -- | Parse user event
 --
@@ -203,6 +205,9 @@ data AnalysisState = AnalysisState {
     _runningThreads :: RunningThreads
   , _windowAnalyses :: [EventAnalysis]
 }
+
+threadNameGetter :: ThreadId -> Traversal' EventAnalysis String
+threadNameGetter tid = windowThreadInfo . ix tid . _3
 
 $(makeLenses ''AnalysisState)
 

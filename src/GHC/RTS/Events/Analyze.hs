@@ -5,6 +5,7 @@ import Control.Monad (when, forM_)
 import Data.Maybe (isNothing)
 import System.FilePath (replaceExtension, takeFileName)
 import Text.Parsec.String (parseFromFile)
+import Text.Regex.PCRE
 
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>))
@@ -47,8 +48,8 @@ main = do
     forM_ (zip [0..] analyses) $ \ (i,analysis) -> do
 
       let quantized = quantize optionsNumBuckets analysis
-          totals    = Totals.createReport analysis totalsScript
-          timed     = Timed.createReport analysis quantized timedScript
+          totals    = Totals.createReport analysis (fmap makeRegex <$> totalsScript)
+          timed     = Timed.createReport analysis quantized (fmap makeRegex <$> timedScript)
 
       writeReport optionsGenerateTotalsText
                   totalsScriptName
@@ -65,7 +66,7 @@ main = do
                   (prefixAnalysisNumber i "timed.txt")
                   (Timed.writeReport timed)
 
-getScript :: FilePath -> Script -> IO (String, Script)
+getScript :: FilePath -> Script String -> IO (String, Script String)
 getScript ""   def = return ("default script", def)
 getScript path _   = do
   mScript <- parseFromFile pScript path
