@@ -153,7 +153,7 @@ matchesFilter (Is eid') eid = eid' == eid
 matchesFilter  IsUser    eid = isUserEvent eid
 matchesFilter (IsThread IncludeAll) (isThreadEvent -> Just _) = True
 matchesFilter (IsThread (Include r)) (isThreadEvent -> Just tid) = r tid
-matchesFilter (IsThread (Exclude r)) e = not$ matchesFilter (IsThread$ Include r) e
+matchesFilter (IsThread (Exclude r)) (isThreadEvent -> Just tid) = not(r tid)
 matchesFilter IsThread{} _ = False
 matchesFilter (Any fs) eid = any (`matchesFilter` eid) fs
 
