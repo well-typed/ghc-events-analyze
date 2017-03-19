@@ -41,7 +41,7 @@ data ReportLine = ReportLineData {
 -------------------------------------------------------------------------------}
 
 createReport :: EventAnalysis -> Script String -> Report
-createReport analysis@EventAnalysis{..} = concatMap go . fmap (fmap (mkThreadFilter analysis))
+createReport analysis@EventAnalysis{..} = concatMap go . fmap (fmap (mkThreadFilter _windowThreadInfo))
   where
     go :: Command (ThreadId -> Bool) -> [ReportFragment]
     go (Section title) =

@@ -200,10 +200,10 @@ data EventAnalysis = EventAnalysis {
 
 $(makeLenses ''EventAnalysis)
 
-mkThreadFilter :: EventAnalysis -> String -> ThreadId -> Bool
+mkThreadFilter :: ThreadInfo-> String -> ThreadId -> Bool
 mkThreadFilter analysis regex =
   let r :: Regex = makeRegex regex
-      m = Map.fromList [(tid, matchTest r tn) | (tid, (_,_,tn)) <- Map.toList (_windowThreadInfo analysis)]
+      m = Map.map (\(_,_,tn) ->matchTest r tn) analysis
   in \tid -> m ^?! ix tid
 
 -- | State while running an analysis. Keeps track of currently running threads,
