@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 module GHC.RTS.Events.Analyze.Types (
     -- * Events
@@ -35,9 +38,11 @@ module GHC.RTS.Events.Analyze.Types (
 
 import Control.Lens
 import Data.Char
-import Data.Map (Map)
+import Data.Hashable
+import Data.HashMap.Strict (HashMap)
+import Data.IntMap.Strict (IntMap)
+import GHC.Generics
 import GHC.RTS.Events (Timestamp, ThreadId)
-import qualified Data.Map as Map
 import Text.Regex.PCRE
 
 {-------------------------------------------------------------------------------
@@ -66,7 +71,7 @@ data EventId =
 
     -- | Threads
   | EventThread ThreadId
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Generic, Hashable, Ord, Show)
 
 -- | The user-readable name for an event
 type EventLabel = String
@@ -100,10 +105,10 @@ parseUserEvent s =
 --
 -- The argument is typically either `__threadInfo` from `EventAnalysis` or
 -- `quantThreadInfo` from `Quantized`.
-showEventId :: Map ThreadId (a, a, String) -> EventId -> String
+showEventId :: HashMap ThreadId (a,b,String) -> EventId -> String
 showEventId _    EventGC             = "GC"
 showEventId _    (EventUser event _) = event
-showEventId info (EventThread tid)   = case Map.lookup tid info of
+showEventId info (EventThread tid)   = case info ^. at tid of
                                          Just (_, _, l) -> l
                                          Nothing        -> show tid
 
@@ -140,10 +145,10 @@ data Options = Options {
 -------------------------------------------------------------------------------}
 
 -- | Map of currently running threads to their labels
-type RunningThreads = Map ThreadId String
+type RunningThreads = HashMap ThreadId String
 
 threadIds :: RunningThreads -> [ThreadId]
-threadIds = Map.keys
+threadIds = map fst . itoList
 
 -- | Information about each thread to be stored per window
 --
@@ -151,7 +156,7 @@ threadIds = Map.keys
 -- thread label (as indicated by ThreadLabel events)
 --
 -- The default label for each thread is the thread ID
-type ThreadInfo = Map ThreadId (Timestamp, Timestamp, String)
+type ThreadInfo = HashMap ThreadId (Timestamp, Timestamp, String)
 
 -- | Analysis of a window (or the whole program run if there aren't any).
 -- The fields that we use as "accumulators" in `analyze` are strict so that we
@@ -183,11 +188,11 @@ data EventAnalysis = EventAnalysis {
     -- separately for separate HECs). We therefore record for each open event
     -- how many start events we have seen, and hence how many ends we need to
     -- see before counting the event as finished.
-  , _openEvents :: !(Map EventId (Timestamp, Int))
+  , _openEvents :: !(HashMap EventId (Timestamp, Int))
 
     -- | Total amount of time per event (non-strict)
-  , eventTotals :: Map EventId Timestamp
-  , eventStarts :: Map EventId Timestamp
+  , eventTotals :: HashMap EventId Timestamp
+  , eventStarts :: HashMap EventId Timestamp
 
     -- | Timestamp of the Startup event
   , _startup :: !(Maybe Timestamp)
@@ -203,7 +208,7 @@ $(makeLenses ''EventAnalysis)
 mkThreadFilter :: ThreadInfo-> String -> ThreadId -> Bool
 mkThreadFilter analysis regex =
   let r :: Regex = makeRegex regex
-      m = Map.map (\(_,_,tn) ->matchTest r tn) analysis
+      m = analysis & each %~ (\(_,_,tn) -> matchTest r tn)
   in \tid -> m ^?! ix tid
 
 -- | State while running an analysis. Keeps track of currently running threads,
@@ -230,9 +235,9 @@ $(makeLenses ''AnalysisState)
 -- number of cores.
 data Quantized = Quantized {
     -- | For each event and each bucket how much of that bucket the event used up
-    quantTimes      :: Map EventId (Map Int Double)
+    quantTimes      :: HashMap EventId (IntMap Double)
     -- | Like threadInfo, but quantized (start and finish bucket)
-  , quantThreadInfo :: Map ThreadId (Int, Int, String)
+  , quantThreadInfo :: HashMap ThreadId (Int, Int, String)
     -- | Size of each bucket
   , quantBucketSize :: Timestamp
   }

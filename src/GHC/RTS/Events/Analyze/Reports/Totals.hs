@@ -6,12 +6,12 @@ module GHC.RTS.Events.Analyze.Reports.Totals (
   , writeReport
   ) where
 
+import Control.Lens (itoList)
 import Data.Function (on)
 import Data.List (sortBy, intercalate)
 import GHC.RTS.Events (Timestamp)
 import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
-import qualified Data.Map as Map
 
 import GHC.RTS.Events.Analyze.Analysis
 import GHC.RTS.Events.Analyze.Types
@@ -68,7 +68,7 @@ createReport analysis@EventAnalysis{..} = concatMap go . fmap (fmap (mkThreadFil
     sorted (Just sort) = sortBy (compareEventIds analysis sort `on` fst)
 
     filtered :: EventFilter (ThreadId -> Bool) -> [(EventId, Timestamp)]
-    filtered f = filter (matchesFilter f . fst) (Map.toList eventTotals)
+    filtered f = filter (matchesFilter f . fst) (itoList eventTotals)
 
 sumLines :: Maybe Title -> [ReportLine] -> ReportLine
 sumLines title qs = ReportLineData {

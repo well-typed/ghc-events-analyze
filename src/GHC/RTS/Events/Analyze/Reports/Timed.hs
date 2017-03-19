@@ -7,12 +7,14 @@ module GHC.RTS.Events.Analyze.Reports.Timed (
   , writeReport
   ) where
 
+import Control.Lens (itoList, (^.), over, each)
 import Data.Function (on)
 import Data.List (sortBy, intercalate)
-import Data.Map (Map)
+import Data.IntMap.Strict (IntMap)
 import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
-import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as Map
+import qualified Data.IntMap.Strict as IntMap
 
 import GHC.RTS.Events.Analyze.Analysis
 import GHC.RTS.Events.Analyze.Script
@@ -34,7 +36,7 @@ data ReportLine = ReportLineData {
     lineHeader     :: String
   , lineEventIds   :: [EventId]
   , lineBackground :: Maybe (Int, Int)
-  , lineValues     :: Map Int Double
+  , lineValues     :: IntMap Double
   }
   deriving Show
 
@@ -55,7 +57,7 @@ createReport analysis Quantized{..} = concatMap go . fmap (fmap (mkThreadFilter 
     go (Sum f title) =
       [ReportLine $ sumLines title $ map (reportLine Nothing) (filtered f)]
 
-    reportLine :: Maybe Title -> (EventId, Map Int Double) -> ReportLine
+    reportLine :: Maybe Title -> (EventId, IntMap Double) -> ReportLine
     reportLine title (eid, qs) = ReportLineData {
         lineHeader     = showTitle (showEventId quantThreadInfo eid) title
       , lineEventIds   = [eid]
@@ -72,25 +74,25 @@ createReport analysis Quantized{..} = concatMap go . fmap (fmap (mkThreadFilter 
         Just (start, stop, _) -> Just (start, stop)
         Nothing               -> error $ "Invalid thread ID " ++ show tid
 
-    quantTimesForEvent :: EventId -> Map Int Double
+    quantTimesForEvent :: EventId -> IntMap Double
     quantTimesForEvent eid =
       case Map.lookup eid quantTimes of
-        Nothing    -> Map.empty -- this event didn't happen in the window
+        Nothing    -> mempty -- this event didn't happen in the window
         Just times -> times
 
     sorted :: Maybe EventSort -> [(EventId, a)] -> [(EventId, a)]
     sorted Nothing     = id
     sorted (Just sort) = sortBy (compareEventIds analysis sort `on` fst)
 
-    filtered :: EventFilter (ThreadId -> Bool) -> [(EventId, Map Int Double)]
-    filtered f = filter (matchesFilter f . fst) (Map.toList quantTimes)
+    filtered :: EventFilter (ThreadId -> Bool) -> [(EventId, IntMap Double)]
+    filtered f = filter (matchesFilter f . fst) (itoList quantTimes)
 
 sumLines :: Maybe Title -> [ReportLine] -> ReportLine
 sumLines title qs = ReportLineData {
       lineHeader     = showTitle "TOTAL" title
     , lineEventIds   = concatMap lineEventIds qs
     , lineBackground = foldr1 combineBG $ map lineBackground qs
-    , lineValues     = Map.unionsWith (+) $ map lineValues qs
+    , lineValues     = IntMap.unionsWith (+) $ map lineValues qs
     }
   where
     combineBG :: Maybe (Int, Int) -> Maybe (Int, Int) -> Maybe (Int, Int)
@@ -124,7 +126,7 @@ writeReport' report h =
 
     reportLine :: ReportLine -> [String]
     reportLine ReportLineData{..} =
-      lineHeader : unsparse "0.00" (Map.map showValue lineValues)
+      lineHeader : unsparse "0.00" (over each showValue lineValues)
 
     showValue :: Double -> String
     showValue = printf "%0.2f"

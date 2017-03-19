@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module GHC.RTS.Events.Analyze.Utils (
     throwLeft
   , throwLeftStr
@@ -10,11 +11,10 @@ module GHC.RTS.Events.Analyze.Utils (
   , renderTable
   ) where
 
+import Control.Lens
 import Control.Exception
 import Data.List (transpose)
 import Data.Either (partitionEithers)
-import Data.Map (Map)
-import qualified Data.Map as Map
 
 throwLeft :: Exception e => IO (Either e a) -> IO a
 throwLeft act = act >>= \ea -> case ea of Left  e -> throwIO e
@@ -72,10 +72,11 @@ mapEithers f g eithers = rebuild eithers (f lefts) (g rights)
 
 -- | Turn a sparse representation of a list into a regular list, using
 -- a default value for the blanks
-unsparse :: forall a. a -> Map Int a -> [a]
-unsparse blank = go 0 . Map.toList
+{-# INLINE unsparse #-}
+unsparse :: FoldableWithIndex Int f => t -> f t -> [t]
+unsparse blank = go 0 . itoList
   where
-    go :: Int -> [(Int, a)] -> [a]
+    --go :: Int -> [(Int, a)] -> [a]
     go _ []            = []
     go n ((m, a) : as) = replicate (m - n) blank ++ a : go (m + 1) as
 

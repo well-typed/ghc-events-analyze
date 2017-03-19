@@ -14,12 +14,14 @@ module GHC.RTS.Events.Analyze.Analysis (
 
 import Prelude hiding (log)
 import Control.Applicative ((<|>))
-import Control.Lens ((%=), (.=), at, use)
+import Control.Lens
 import Control.Monad (forM_, when, void)
 import Data.Maybe (fromMaybe, isNothing)
-import Data.Map.Strict (Map)
+import Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as Map
+import Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
 import GHC.RTS.Events hiding (events)
-import qualified Data.Map.Strict as Map
 
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative ((<$>))
@@ -116,36 +118,36 @@ recordShutdown time =
 
 recordEventStart :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStart eid start = do
-    (oldValue, newOpen) <- Map.insertLookupWithKey push eid (start, 1) <$> use openEvents
-    openEvents .= newOpen
+    oldValue <- openEvents . at eid <<%= Just . push (start,1)
     case (eid, oldValue) of
       -- Pretend user events stop on the _first_ StartGC
       (EventGC, Nothing) -> simulateUserEventsStopAt start
       _                  -> return ()
   where
-    push _ (_newStart, _newCount) (oldStart, oldCount) =
+    push _new Nothing = _new
+    push (_newStart, _newCount) (Just(oldStart, oldCount)) =
       -- _newCount will always be 1; _newStart is irrelevant
       let count' = oldCount + 1
       in count' `seq` (oldStart, count')
 
 recordEventStop :: EventId -> Timestamp -> State EventAnalysis ()
 recordEventStop eid stop = do
-    (newValue, newOpen) <- Map.updateLookupWithKey pop eid <$> use openEvents
-    case newValue of
-      Just (start, 0) -> do
-        openEvents %= Map.delete eid
+    oldValue <- openEvents . at eid <<%= (>>= pop)
+    case oldValue of
+      Just (start, 1) -> do
         events     %= (:) (eid, start, stop)
         when (eid == EventGC) $ simulateUserEventsStartAt stop
       _ ->
-        openEvents .= newOpen
+        return ()
   where
-    pop _ (start, count) =
+    pop (_start, 1) = Nothing
+    pop (start, count) =
       let count' = count - 1
       in count' `seq` Just (start, count')
 
 simulateUserEventsStopAt :: Timestamp -> State EventAnalysis ()
 simulateUserEventsStopAt stop = do
-    nowOpen <- Map.toList <$> use openEvents
+    nowOpen <- itoList <$> use openEvents
     forM_ nowOpen $ \(eid, (start, _count)) -> case eid of
       EventGC       -> return ()
       EventThread _ -> return ()
@@ -246,22 +248,22 @@ initialEventAnalysis opts = EventAnalysis {
   , _inWindow         = isNothing (optionsWindowEvent opts)
   }
 
-computeTotals :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp
-computeTotals = go Map.empty
+computeTotals :: [(EventId, Timestamp, Timestamp)] -> HashMap EventId Timestamp
+computeTotals = go mempty
   where
-    go :: Map EventId Timestamp
+    go :: HashMap EventId Timestamp
        -> [(EventId, Timestamp, Timestamp)]
-       -> Map EventId Timestamp
+       -> HashMap EventId Timestamp
     go !acc [] = acc
     go !acc ((eid, start, stop) : es) =
       go (Map.insertWith (+) eid (stop - start) acc) es
 
-computeStarts :: [(EventId, Timestamp, Timestamp)] -> Map EventId Timestamp
+computeStarts :: [(EventId, Timestamp, Timestamp)] -> HashMap EventId Timestamp
 computeStarts = go Map.empty
   where
-    go :: Map EventId Timestamp
+    go :: HashMap EventId Timestamp
        -> [(EventId, Timestamp, Timestamp)]
-       -> Map EventId Timestamp
+       -> HashMap EventId Timestamp
     go !acc [] = acc
     go !acc ((eid, start, _) : es) =
       go (Map.insertWith min eid start acc) es
@@ -302,24 +304,24 @@ quantize numBuckets EventAnalysis{..} = Quantized {
     , quantBucketSize = bucketSize
     }
   where
-    go :: Map EventId (Map Int Double)
+    go :: HashMap EventId (IntMap Double)
        -> [(EventId, Timestamp, Timestamp)]
-       -> Map EventId (Map Int Double)
+       -> HashMap EventId (IntMap Double)
     go !acc [] = acc
     go !acc ((eid, start, end) : ttimes') =
       let startBucket, endBucket :: Int
           startBucket = bucket start
           endBucket   = bucket end
 
-          updates :: Map Int Double
-          updates = Map.fromAscList
+          updates :: IntMap Double
+          updates = IntMap.fromAscList
                   $ [ (b, delta startBucket endBucket start end b)
                     | b <- [startBucket .. endBucket]
                     ]
 
-          update :: Maybe (Map Int Double) -> Maybe (Map Int Double)
+          update :: Maybe (IntMap Double) -> Maybe (IntMap Double)
           update Nothing    = Just $ updates
-          update (Just old) = let new = Map.unionWith (+) updates old
+          update (Just old) = let new = IntMap.unionWith (+) updates old
                               in new `seq` Just new
 
       in go (Map.alter update eid acc) ttimes'

@@ -3,7 +3,7 @@
 module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
     writeReport
   ) where
-
+import Control.Lens (itoList)
 import Data.List (foldl')
 import Data.Monoid ((<>))
 import Diagrams.Backend.SVG (B, renderSVG)
@@ -11,7 +11,6 @@ import Diagrams.Prelude (QDiagram, Colour, V2, N, Any, (#), (|||))
 import GHC.RTS.Events (Timestamp)
 import Graphics.SVGFonts.Text (TextOpts(..))
 import Text.Printf (printf)
-import qualified Data.Map                   as Map
 import qualified Diagrams.Prelude           as D
 import qualified Graphics.SVGFonts.Fonts    as F
 import qualified Graphics.SVGFonts.Text     as F
@@ -104,7 +103,7 @@ renderLine options@Options{..} lc line@ReportLineData{..} =
   where
     blocks :: Colour Double -> D
     blocks c = mconcat . map (mkBlock $ lineColor c line)
-             $ Map.toList lineValues
+             $ itoList lineValues
 
     mkBlock :: Colour Double -> (Int, Double) -> D
     mkBlock c (b, q) = block options b # D.fcA (c `D.withOpacity` qOpacity q)
