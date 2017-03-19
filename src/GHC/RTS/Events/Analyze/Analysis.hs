@@ -183,11 +183,11 @@ recordWindowStop opts time = do
 recordThreadCreation :: ThreadId -> Timestamp -> State AnalysisState ()
 recordThreadCreation tid start = do
     let label = show tid
-    cur $ ifInWindow $ recordWindowThreadCreation tid start label
-    runningThreads . at tid .= Just label
+    cur $ ifInWindow $ recordWindowThreadCreation tid start [label]
+    runningThreads . at tid .= Just [label]
 
 -- Record thread creation in current window
-recordWindowThreadCreation :: ThreadId -> Timestamp -> String -> State EventAnalysis ()
+recordWindowThreadCreation :: ThreadId -> Timestamp -> [String] -> State EventAnalysis ()
 recordWindowThreadCreation tid start label =
     windowThreadInfo . at tid .=  Just (start, start, label)
 
@@ -220,11 +220,11 @@ recordRunningThreadFinish stop = do
 
 labelThread :: ThreadId -> String -> State AnalysisState ()
 labelThread tid l = do
-    runningThreads . at tid %= fmap updLabel
+    runningThreads . at tid %= fmap (consS l)
     cur $ windowThreadInfo . at tid %= fmap updThreadInfo
   where
-    updThreadInfo (start, stop, l') = (start, stop, updLabel l')
-    updLabel l' = l ++ " (" ++ l' ++ ")"
+    updThreadInfo (start, stop, l') = let !ll = consS l l' in (start, stop, ll)
+    consS !a !b = a : b
 
 finishThread :: EventInfo -> Maybe ThreadId
 finishThread (StopThread tid ThreadFinished) = Just tid
@@ -359,5 +359,5 @@ quantize numBuckets EventAnalysis{..} = Quantized {
     t2d :: Timestamp -> Double
     t2d = fromInteger . toInteger
 
-    quantizeThreadInfo :: (Timestamp, Timestamp, String) -> (Int, Int, String)
+    quantizeThreadInfo :: (Timestamp, Timestamp, a) -> (Int, Int, a)
     quantizeThreadInfo (start, stop, label) = (bucket start, bucket stop, label)

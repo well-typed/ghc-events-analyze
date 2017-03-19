@@ -16,6 +16,7 @@ module GHC.RTS.Events.Analyze.Types (
   , Options(..)
     -- * Analysis state
   , RunningThreads
+  , ThreadLabels
   , threadIds
   , ThreadInfo
   , EventAnalysis(..)
@@ -144,19 +145,23 @@ data Options = Options {
   Analysis state
 -------------------------------------------------------------------------------}
 
+-- Thread labels held by a thread (as indicated by ThreadLabel events)
+-- in inverse cronological order (most recent first)
+type ThreadLabels = [String]
+
 -- | Map of currently running threads to their labels
-type RunningThreads = HashMap ThreadId String
+type RunningThreads = HashMap ThreadId ThreadLabels
 
 threadIds :: RunningThreads -> [ThreadId]
 threadIds = map fst . itoList
 
 -- | Information about each thread to be stored per window
 --
--- When was the thread created, when was it destroyed, and what is the
--- thread label (as indicated by ThreadLabel events)
+-- When was the thread created, when was it destroyed, and what are the
+-- thread labels in inverse cronological order (as indicated by ThreadLabel events)
 --
 -- The default label for each thread is the thread ID
-type ThreadInfo = HashMap ThreadId (Timestamp, Timestamp, String)
+type ThreadInfo = HashMap ThreadId (Timestamp, Timestamp, ThreadLabels)
 
 -- | Analysis of a window (or the whole program run if there aren't any).
 -- The fields that we use as "accumulators" in `analyze` are strict so that we
@@ -208,7 +213,7 @@ $(makeLenses ''EventAnalysis)
 mkThreadFilter :: ThreadInfo-> String -> ThreadId -> Bool
 mkThreadFilter analysis regex =
   let r :: Regex = makeRegex regex
-      m = analysis & each %~ (\(_,_,tn) -> matchTest r tn)
+      m = analysis & each %~ (\(_,_,tn) -> any (matchTest r) tn)
   in \tid -> m ^?! ix tid
 
 -- | State while running an analysis. Keeps track of currently running threads,
@@ -237,7 +242,7 @@ data Quantized = Quantized {
     -- | For each event and each bucket how much of that bucket the event used up
     quantTimes      :: HashMap EventId (IntMap Double)
     -- | Like threadInfo, but quantized (start and finish bucket)
-  , quantThreadInfo :: HashMap ThreadId (Int, Int, String)
+  , quantThreadInfo :: HashMap ThreadId (Int, Int, ThreadLabels)
     -- | Size of each bucket
   , quantBucketSize :: Timestamp
   }
