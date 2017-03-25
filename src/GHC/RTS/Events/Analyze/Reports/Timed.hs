@@ -9,7 +9,7 @@ module GHC.RTS.Events.Analyze.Reports.Timed (
 
 import Control.Lens (itoList, (^.), over, each, _3)
 import Data.Function (on)
-import Data.List (sortBy, intercalate)
+import Data.List (group, sortBy, intercalate)
 import Data.IntMap.Strict (IntMap)
 import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
@@ -58,7 +58,7 @@ createReport analysis Quantized{..} = concatMap go . fmap (fmap (mkThreadFilter 
       [ReportLine $ sumLines title $ map (reportLine Nothing) (filtered f)]
 
     quantThreadInfoFlattened = over (each._3) flattenThreadLabels quantThreadInfo
-    flattenThreadLabels ll = intercalate ":" ll
+    flattenThreadLabels = intercalate ":" . map head . group
 
     reportLine :: Maybe Title -> (EventId, IntMap Double) -> ReportLine
     reportLine title (eid, qs) = ReportLineData {

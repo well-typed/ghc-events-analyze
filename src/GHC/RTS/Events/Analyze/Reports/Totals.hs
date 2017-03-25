@@ -8,7 +8,7 @@ module GHC.RTS.Events.Analyze.Reports.Totals (
 
 import Control.Lens hiding (filtered)
 import Data.Function (on)
-import Data.List (sortBy, intercalate)
+import Data.List (sortBy, intercalate, group)
 import GHC.RTS.Events (Timestamp)
 import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
@@ -54,7 +54,7 @@ createReport analysis@EventAnalysis{..} = concatMap go . fmap (fmap (mkThreadFil
       [ReportLine $ sumLines title $ map (reportLine Nothing) (filtered f)]
 
     flattenedThreadInfo = over (each._3) flattenThreadLabels _windowThreadInfo
-    flattenThreadLabels ll = intercalate ":" ll
+    flattenThreadLabels = intercalate ":" . map head . group
 
     reportLine :: Maybe Title -> (EventId, Timestamp) -> ReportLine
     reportLine title (eid, total) = ReportLineData {
