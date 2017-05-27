@@ -125,7 +125,7 @@ recordEventStart eid start = do
       _                  -> return ()
   where
     push _new Nothing = _new
-    push (_newStart, _newCount) (Just(oldStart, oldCount)) =
+    push (_newStart, _newCount) (Just (oldStart, oldCount)) =
       -- _newCount will always be 1; _newStart is irrelevant
       let count' = oldCount + 1
       in count' `seq` (oldStart, count')
@@ -219,12 +219,11 @@ recordRunningThreadFinish stop = do
     mapM_ (\tid -> cur $ recordWindowThreadFinish tid stop) $ threadIds threads
 
 labelThread :: ThreadId -> String -> State AnalysisState ()
-labelThread tid l = do
-    runningThreads . at tid %= fmap (consS l)
+labelThread tid !l = do
+    runningThreads . at tid %= fmap (l :)
     cur $ windowThreadInfo . at tid %= fmap updThreadInfo
   where
-    updThreadInfo (start, stop, l') = let !ll = consS l l' in (start, stop, ll)
-    consS !a !b = a : b
+    updThreadInfo (start, stop, !ls) = (start, stop, l : ls)
 
 finishThread :: EventInfo -> Maybe ThreadId
 finishThread (StopThread tid ThreadFinished) = Just tid

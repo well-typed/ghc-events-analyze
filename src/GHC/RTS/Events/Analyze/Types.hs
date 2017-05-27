@@ -146,7 +146,7 @@ data Options = Options {
 -------------------------------------------------------------------------------}
 
 -- Thread labels held by a thread (as indicated by ThreadLabel events)
--- in inverse cronological order (most recent first)
+-- in inverse chronological order (most recent first)
 type ThreadLabels = [String]
 
 -- | Map of currently running threads to their labels
