@@ -1,3 +1,9 @@
+0.2.5
+
+  * Add suppor for filtering threads by name, and improve
+    performance of relabelling.
+    (2017-03-11 Pepe Iborra <mnislaih@gmail.com>)
+
 0.2.4
 
   * Fix bug in timeline rendering when using --tick-every
