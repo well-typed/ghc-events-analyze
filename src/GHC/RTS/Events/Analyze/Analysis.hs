@@ -37,7 +37,7 @@ import GHC.RTS.Events.Analyze.Script
 -------------------------------------------------------------------------------}
 
 sortedEvents :: EventLog -> [Event]
-sortedEvents (EventLog _header (Data es)) = map ce_event (sortEvents es)
+sortedEvents (EventLog _header (Data es)) = sortEvents es
 
 readEventLog :: FilePath -> IO EventLog
 readEventLog  = throwLeftStr . readEventLogFromFile
@@ -63,7 +63,7 @@ analyze opts@Options{..} log =
                       Just ev -> (== ev)
 
     analyzeEvent :: Event -> State AnalysisState ()
-    analyzeEvent (Event time spec) = do
+    analyzeEvent (Event time spec _mb_cap) = do
       cur $ recordShutdown time
       case spec of
         -- CapCreate/CapDelete are the "new" events (ghc >= 7.6)
