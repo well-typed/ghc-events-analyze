@@ -14,6 +14,7 @@ import Text.Printf (printf)
 import qualified Diagrams.Prelude           as D
 import qualified Graphics.SVGFonts.Fonts    as F
 import qualified Graphics.SVGFonts.Text     as F
+import qualified Graphics.SVGFonts.ReadFont as F
 import qualified Diagrams.TwoD.Text as TT
 
 #if !MIN_VERSION_base(4,8,0)
@@ -25,15 +26,17 @@ import GHC.RTS.Events.Analyze.Reports.Timed hiding (writeReport)
 
 writeReport :: Options -> Quantized -> Report -> FilePath -> IO ()
 writeReport options quantized report path = do
-  uncurry (renderSVG path) $ renderReport options quantized report
+  font <- F.bit
+  uncurry (renderSVG path) $ renderReport options quantized report font
 
 type D        = QDiagram B V2 (N B) Any
 type SizeSpec = D.SizeSpec V2 Double
 
-renderReport :: Options -> Quantized -> Report -> (SizeSpec, D)
+renderReport :: Options -> Quantized -> Report -> F.PreparedFont Double -> (SizeSpec, D)
 renderReport options@Options{..}
              Quantized{quantBucketSize}
              report
+             font
            = (sizeSpec, rendered)
   where
     sizeSpec = let w = Just $ D.width  rendered
@@ -45,7 +48,7 @@ renderReport options@Options{..}
                       $ zip (cycle [D.white, D.ghostwhite])
                             (SVGTimeline : fragments)
     fragments :: [SVGFragment]
-    fragments = map (renderFragment options) $ zip report (cycle allColors)
+    fragments = map (renderFragment options font) $ zip report (cycle allColors)
 
     renderSVGFragment :: Colour Double -> SVGFragment -> D
     renderSVGFragment _ (SVGSection title) =
@@ -57,7 +60,7 @@ renderReport options@Options{..}
       (D.rect lineWidth optionsBucketHeight # D.alignL # D.fc bg # D.lw D.none)
     renderSVGFragment _ SVGTimeline =
           padHeader optionsBucketHeight mempty
-      ||| timeline options optionsNumBuckets quantBucketSize
+      ||| timeline options optionsNumBuckets quantBucketSize font
 
     lineWidth :: Double
     lineWidth = headerWidth + fromIntegral optionsNumBuckets * optionsBucketWidth
@@ -81,18 +84,18 @@ renderReport options@Options{..}
           (maxHeader, _) = foldl' (\(s, l) (s', l') ->
                                      if l' > l then (s', l') else (s, l))
                                   ("", 0) headers
-      in D.width $! mkSVGText maxHeader (optionsBucketHeight + 2)
+      in D.width $! mkSVGText maxHeader (optionsBucketHeight + 2) font
 
 data SVGFragment =
     SVGTimeline
   | SVGSection D
   | SVGLine String D
 
-renderFragment :: Options -> (ReportFragment, Colour Double) -> SVGFragment
-renderFragment options@Options{..} = go
+renderFragment :: Options -> F.PreparedFont Double -> (ReportFragment, Colour Double) -> SVGFragment
+renderFragment options@Options{..} font = go
   where
     go :: (ReportFragment, Colour Double) -> SVGFragment
-    go (ReportSection title,_) = SVGSection (mkSVGText title (optionsBucketHeight + 2))
+    go (ReportSection title,_) = SVGSection (mkSVGText title (optionsBucketHeight + 2) font)
     go (ReportLine line,c)     = uncurry SVGLine $ renderLine options c line
 
 renderLine :: Options -> Colour Double -> ReportLine -> (String, D)
@@ -130,16 +133,16 @@ bgBlocks options = go
 -- The problem with this function is that it's *extremely* slow and
 -- memory hungry in comparison to something simple like 'TT.text'.
 -- This function should therefore be used as little as possible.
-mkSVGText :: String -> Double -> D
-mkSVGText str size =
+mkSVGText :: String -> Double -> F.PreparedFont Double -> D
+mkSVGText str size font =
   D.stroke textSVG # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
   where
-    textSVG = F.textSVG' (textOpts size) str
+    textSVG = F.textSVG' (textOpts size font) str
 
-textOpts :: Double -> TextOpts Double
-textOpts size =
+textOpts :: Double -> F.PreparedFont Double -> TextOpts Double
+textOpts size font =
     TextOpts {
-        textFont   = F.bit
+        textFont   = font
       , mode       = F.INSIDE_H
       , spacing    = F.KERN
       , underline  = False
@@ -176,8 +179,8 @@ block Options{..} i =
     borderWidth | optionsBorderWidth == 0 = D.none
                 | otherwise               = D.global optionsBorderWidth
 
-timeline :: Options -> Int -> Timestamp -> D
-timeline Options{..} numBuckets bucketSize =
+timeline :: Options -> Int -> Timestamp -> F.PreparedFont Double -> D
+timeline Options{..} numBuckets bucketSize font =
    let timeBlocks = [ tb
                     | b <- [0 .. numBuckets - 1]
                     -- timeline block number, index within this timeline block @(0 .. optionsTickEvery - 1)@
@@ -205,7 +208,7 @@ timeline Options{..} numBuckets bucketSize =
         let btime = bucketTime tb
             myNum = if lastStr == btime
                     then lastNumD
-                    else mkSVGText btime optionsBucketHeight # D.translateY (optionsBucketHeight - 2)
+                    else mkSVGText btime optionsBucketHeight font # D.translateY (optionsBucketHeight - 2)
             myDiag = D.strokeLine bigLine # D.lw (D.local 0.5) <> myNum
         in (btime, myNum, fullDiag <> myDiag # moveAlongTimeline tb)
       | otherwise =
