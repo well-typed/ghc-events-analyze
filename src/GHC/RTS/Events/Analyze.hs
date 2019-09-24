@@ -2,6 +2,7 @@
 module Main where
 
 import Control.Monad (when, forM_)
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Maybe (isNothing)
 import System.FilePath (replaceExtension, takeFileName)
 import Text.Parsec.String (parseFromFile)
@@ -44,7 +45,7 @@ main = do
           | isNothing optionsWindowEvent = filename
           | otherwise                    = show i ++ "." ++ filename
 
-    forM_ (zip [0..] analyses) $ \ (i,analysis) -> do
+    forM_ (zip [0..] (NonEmpty.toList analyses)) $ \ (i,analysis) -> do
 
       let quantized = quantize optionsNumBuckets analysis
           totals    = Totals.createReport analysis totalsScript

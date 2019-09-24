@@ -51,7 +51,7 @@ executable ghc-events-analyze
                        GHC.RTS.Events.Analyze.Reports.Timed
                        GHC.RTS.Events.Analyze.Reports.Timed.SVG
 
-  build-depends:       base                 >= 4.8   && < 4.12,
+  build-depends:       base                 >= 4.8   && < 4.13,
                        blaze-svg            >= 0.3   && < 0.4,
                        bytestring           >= 0.10  && < 0.11,
                        containers           >= 0.5   && < 0.7,

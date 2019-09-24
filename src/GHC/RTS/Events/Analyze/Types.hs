@@ -42,6 +42,7 @@ import Data.Char
 import Data.Hashable
 import Data.HashMap.Strict (HashMap)
 import Data.IntMap.Strict (IntMap)
+import Data.List.NonEmpty (NonEmpty)
 import GHC.Generics
 import GHC.RTS.Events (Timestamp, ThreadId)
 import Text.Regex.PCRE
@@ -220,7 +221,7 @@ mkThreadFilter analysis regex =
 -- and appends an 'EventAnalysis' per window.
 data AnalysisState = AnalysisState {
     _runningThreads :: RunningThreads
-  , _windowAnalyses :: [EventAnalysis]
+  , _windowAnalyses :: NonEmpty EventAnalysis
 }
 
 $(makeLenses ''AnalysisState)

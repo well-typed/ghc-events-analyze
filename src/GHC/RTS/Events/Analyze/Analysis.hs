@@ -21,6 +21,8 @@ import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as Map
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
+import Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.List.NonEmpty as NonEmpty
 import GHC.RTS.Events hiding (events)
 
 #if !MIN_VERSION_base(4,8,0)
@@ -48,14 +50,14 @@ readEventLog  = throwLeftStr . readEventLogFromFile
   the analysis combines such events.
 -------------------------------------------------------------------------------}
 
-analyze :: Options -> EventLog -> [EventAnalysis]
+analyze :: Options -> EventLog -> NonEmpty EventAnalysis
 analyze opts@Options{..} log =
     let AnalysisState _ analyses = execState (mapM_ analyzeEvent (sortedEvents log))
                                              (initialAnalysisState opts)
-    in reverse
-       [ analysis { eventTotals = computeTotals (_events analysis)
-                  , eventStarts = computeStarts (_events analysis) }
-       | analysis <- (if length analyses > 1 then drop 1 else id) analyses ]
+    in NonEmpty.reverse $ do
+         analysis <- nonEmptyTail analyses
+         pure analysis { eventTotals = computeTotals (_events analysis)
+                       , eventStarts = computeStarts (_events analysis) }
   where
     isWindowEvent :: EventId -> Bool
     isWindowEvent = case optionsWindowEvent of
@@ -95,6 +97,10 @@ analyze opts@Options{..} log =
     stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ parseUserEvent e
     stopId _                                                = Nothing
 
+    nonEmptyTail :: NonEmpty a -> NonEmpty a
+    nonEmptyTail (_ :| (x : xs)) = x :| xs
+    nonEmptyTail xs              = xs
+
 ifInWindow :: State EventAnalysis () -> State EventAnalysis ()
 ifInWindow m = do
   b <- use inWindow
@@ -103,9 +109,9 @@ ifInWindow m = do
 -- Lift actions on the current analysis to the head of the list.
 cur :: State EventAnalysis a -> State AnalysisState a
 cur m = do
-  AnalysisState ts (h:t) <- get
+  AnalysisState ts (h:|t) <- get
   case runState m h of
-    (r, h') -> put (AnalysisState ts (h':t)) >> return r
+    (r, h') -> put (AnalysisState ts (h':|t)) >> return r
 
 -- We take the _first_ CapCreate to be the official startup time
 recordStartup :: Timestamp -> State EventAnalysis ()
@@ -177,7 +183,7 @@ recordWindowStop opts time = do
     inWindow .= False
     recordShutdown time
   recordRunningThreadFinish time
-  windowAnalyses %= (initialEventAnalysis opts :)
+  windowAnalyses %= NonEmpty.cons (initialEventAnalysis opts)
 
 -- Record thread creation in current window, and add it to the map of running threads
 recordThreadCreation :: ThreadId -> Timestamp -> State AnalysisState ()
@@ -232,7 +238,7 @@ finishThread _                               = Nothing
 initialAnalysisState :: Options -> AnalysisState
 initialAnalysisState opts = AnalysisState {
     _runningThreads = Map.empty
-  , _windowAnalyses = [initialEventAnalysis opts]
+  , _windowAnalyses = initialEventAnalysis opts :| []
   }
 
 initialEventAnalysis :: Options -> EventAnalysis
