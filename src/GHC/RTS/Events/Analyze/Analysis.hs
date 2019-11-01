@@ -23,7 +23,15 @@ import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
-import GHC.RTS.Events hiding (events)
+
+import GHC.RTS.Events (
+    Event(..)
+  , EventInfo(..)
+  , EventLog(..)
+  , ThreadStopStatus(..)
+  , Timestamp
+  )
+import qualified GHC.RTS.Events as Events
 
 import GHC.RTS.Events.Analyze.Utils
 import GHC.RTS.Events.Analyze.StrictState (State, execState, put, get, runState)
@@ -35,10 +43,10 @@ import GHC.RTS.Events.Analyze.Script
 -------------------------------------------------------------------------------}
 
 sortedEvents :: EventLog -> [Event]
-sortedEvents (EventLog _header (Data es)) = sortEvents es
+sortedEvents (EventLog _header (Events.Data es)) = Events.sortEvents es
 
 readEventLog :: FilePath -> IO EventLog
-readEventLog  = throwLeftStr . readEventLogFromFile
+readEventLog  = throwLeftStr . Events.readEventLogFromFile
 
 {-------------------------------------------------------------------------------
   Basic analysis of the eventlog, making the information more easily accessible.
