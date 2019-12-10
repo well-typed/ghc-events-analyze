@@ -7,10 +7,6 @@ import Data.Maybe (isNothing)
 import System.FilePath (replaceExtension, takeFileName)
 import Text.Parsec.String (parseFromFile)
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative ((<$>))
-#endif
-
 import GHC.RTS.Events.Analyze.Analysis
 import GHC.RTS.Events.Analyze.Options
 import qualified GHC.RTS.Events.Analyze.Reports.Totals    as Totals

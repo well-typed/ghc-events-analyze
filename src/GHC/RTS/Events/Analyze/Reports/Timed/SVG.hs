@@ -17,10 +17,6 @@ import qualified Graphics.SVGFonts.Text     as F
 import qualified Graphics.SVGFonts.ReadFont as F
 import qualified Diagrams.TwoD.Text as TT
 
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid (mempty, mconcat)
-#endif
-
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Reports.Timed hiding (writeReport)
 

@@ -7,10 +7,6 @@ module GHC.RTS.Events.Analyze.Options (
 import Data.Foldable (asum)
 import Options.Applicative
 
-#if !MIN_VERSION_base(4,8,0)
-import Data.Monoid (mconcat)
-#endif
-
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Script
 import GHC.RTS.Events.Analyze.Script.Standard
