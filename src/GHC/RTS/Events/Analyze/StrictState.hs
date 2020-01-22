@@ -22,10 +22,6 @@ import qualified Control.Monad.State.Strict as St
 import Control.Monad.Trans.Class (MonadTrans)
 import Control.Monad.Identity (Identity(..))
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
-
 {-------------------------------------------------------------------------------
   Transformer
 -------------------------------------------------------------------------------}

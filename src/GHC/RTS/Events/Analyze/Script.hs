@@ -30,12 +30,8 @@ import Text.Parsec hiding (optional)
 import Text.Parsec.Language (haskellDef)
 import qualified Text.Parsec.Token as P
 
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative ((<$>), (<*>), (*>), (<*), pure)
-#endif
-
-#if !MIN_VERSION_template_haskell(2,10,0)
-import Data.Word (Word32)
+#if !MIN_VERSION_base(4,13,0)
+import Control.Monad.Fail (MonadFail)
 #endif
 
 import GHC.RTS.Events.Analyze.Types
@@ -277,11 +273,6 @@ unparseTitle (Just t) = "as " ++ show t
 
 $(deriveLiftMany [''EventId, ''EventFilter, ''NameFilter, ''EventSort, ''Command])
 
-#if !MIN_VERSION_template_haskell(2,10,0)
-instance Lift Word32 where
-  lift = let conv :: Word32 -> Int ; conv = fromEnum in lift . conv
-#endif
-
 scriptQQ :: QuasiQuoter
 scriptQQ = QuasiQuoter {
     quoteExp  = \e -> parseScriptString "<<source>>" e >>= lift
@@ -290,7 +281,7 @@ scriptQQ = QuasiQuoter {
   , quoteDec  = \_ -> fail "Cannot use script as a declaration"
   }
 
-parseScriptString :: Monad m => String -> String -> m (Script String)
+parseScriptString :: MonadFail m => String -> String -> m (Script String)
 parseScriptString source input =
   case runParser pScript () source input of
     Left  err    -> fail (show err)
