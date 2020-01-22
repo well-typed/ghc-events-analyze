@@ -1,3 +1,8 @@
+0.2.7
+
+  * Support for GHC 8.8
+    (2019-12-10 Simon Jakobi <simon.jakobi@gmail.com>)
+
 0.2.6
 
   * Support for GHC 8.6
