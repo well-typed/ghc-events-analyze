@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 module GHC.RTS.Events.Analyze.Types (
@@ -43,9 +44,15 @@ import Data.Hashable
 import Data.HashMap.Strict (HashMap)
 import Data.IntMap.Strict (IntMap)
 import Data.List.NonEmpty (NonEmpty)
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Read as TR
 import GHC.Generics
 import GHC.RTS.Events (Timestamp, ThreadId)
 import Text.Regex.PCRE
+import Text.Regex.PCRE.Text () -- for RegexLike Regex Text
+
+import GHC.RTS.Events.Analyze.Utils (showThreadId)
 
 {-------------------------------------------------------------------------------
   Event identifiers
@@ -76,7 +83,7 @@ data EventId =
   deriving (Eq, Generic, Hashable, Ord, Show)
 
 -- | The user-readable name for an event
-type EventLabel = String
+type EventLabel = Text
 
 -- | Event subscript
 --
@@ -97,22 +104,22 @@ isThreadEvent _                 = Nothing
 -- | Parse user event
 --
 -- If the event name starts with a digit, regard it as a 'EventSubscript'.
-parseUserEvent :: String -> EventId
+parseUserEvent :: Text -> EventId
 parseUserEvent s =
-    case span isDigit s of
-      ([], _ ) -> EventUser s 0
-      (ds, cs) -> EventUser (dropWhile isSpace cs) (read ds)
+    case TR.decimal s of
+      Left _ -> EventUser s 0
+      Right (eid, cs) -> EventUser (T.dropWhile isSpace cs) eid
 
 -- | Show an event ID given thread info
 --
 -- The argument is typically either `__threadInfo` from `EventAnalysis` or
 -- `quantThreadInfo` from `Quantized`.
-showEventId :: HashMap ThreadId (a,b,String) -> EventId -> String
+showEventId :: HashMap ThreadId (a,b,Text) -> EventId -> Text
 showEventId _    EventGC             = "GC"
 showEventId _    (EventUser event _) = event
 showEventId info (EventThread tid)   = case info ^. at tid of
                                          Just (_, _, l) -> l
-                                         Nothing        -> show tid
+                                         Nothing        -> showThreadId tid
 
 {-------------------------------------------------------------------------------
   Options
@@ -128,8 +135,8 @@ data Options = Options {
   , optionsGenerateTotalsText :: Bool
   , optionsWindowEvent        :: Maybe EventId
   , optionsNumBuckets         :: Int
-  , optionsUserStart          :: String
-  , optionsUserStop           :: String
+  , optionsUserStart          :: Text
+  , optionsUserStop           :: Text
   , optionsScriptTotals       :: FilePath  -- "" denotes the standard script
   , optionsScriptTimed        :: FilePath
   , optionsGranularity        :: TimelineGranularity
@@ -148,7 +155,7 @@ data Options = Options {
 
 -- Thread labels held by a thread (as indicated by ThreadLabel events)
 -- in inverse chronological order (most recent first)
-type ThreadLabels = [String]
+type ThreadLabels = [Text]
 
 -- | Map of currently running threads to their labels
 type RunningThreads = HashMap ThreadId ThreadLabels

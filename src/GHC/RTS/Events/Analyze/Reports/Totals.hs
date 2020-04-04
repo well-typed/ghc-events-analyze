@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module GHC.RTS.Events.Analyze.Reports.Totals (
     Report
   , ReportFragment(..)
@@ -8,9 +9,12 @@ module GHC.RTS.Events.Analyze.Reports.Totals (
 
 import Control.Lens hiding (filtered)
 import Data.Function (on)
-import Data.List (sortBy, intercalate, group)
+import Data.List (sortBy, group)
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import GHC.RTS.Events (Timestamp)
-import System.IO (Handle, hPutStrLn, withFile, IOMode(WriteMode))
+import System.IO (Handle, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
 
 import GHC.RTS.Events.Analyze.Analysis
@@ -30,7 +34,7 @@ data ReportFragment =
   deriving Show
 
 data ReportLine = ReportLineData {
-    lineHeader   :: String
+    lineHeader   :: Text
   , lineEventIds :: [EventId]
   , lineTotal    :: Timestamp
   }
@@ -54,7 +58,7 @@ createReport analysis@EventAnalysis{..} = concatMap go . fmap (fmap (mkThreadFil
       [ReportLine $ sumLines title $ map (reportLine Nothing) (filtered f)]
 
     flattenedThreadInfo = over (each._3) flattenThreadLabels _windowThreadInfo
-    flattenThreadLabels = intercalate ":" . map head . group
+    flattenThreadLabels = T.intercalate ":" . map head . group
 
     reportLine :: Maybe Title -> (EventId, Timestamp) -> ReportLine
     reportLine title (eid, total) = ReportLineData {
@@ -80,7 +84,7 @@ sumLines title qs = ReportLineData {
   , lineTotal    = foldr (+) 0 $ map lineTotal qs
   }
 
-showTitle :: String -> Maybe Title -> String
+showTitle :: Text -> Maybe Title -> Text
 showTitle _   (Just title) = title
 showTitle def Nothing      = def
 
@@ -97,19 +101,19 @@ writeReport' report h =
     $ mapEithers id (renderTable (AlignLeft : repeat AlignRight))
     $ map reportFragment report
   where
-    writeLine :: Either String [String] -> IO ()
-    writeLine (Left header) = hPutStrLn h $ "\n" ++ header
-    writeLine (Right cells) = hPutStrLn h $ intercalate "   " cells
+    writeLine :: Either Title [Text] -> IO ()
+    writeLine (Left header) = T.hPutStrLn h $ "\n" <> header
+    writeLine (Right cells) = T.hPutStrLn h $ T.intercalate "   " cells
 
-    reportFragment :: ReportFragment -> Either String [String]
+    reportFragment :: ReportFragment -> Either Title [Text]
     reportFragment (ReportSection title) = Left title
     reportFragment (ReportLine line)     = Right (reportLine line)
 
-    reportLine :: ReportLine -> [String]
+    reportLine :: ReportLine -> [Text]
     reportLine ReportLineData{..} =
       [ lineHeader
-      , printf "%dns"   $ lineTotal
-      , printf "%0.3fs" $ toSec lineTotal
+      , T.pack $ printf "%dns"   $ lineTotal
+      , T.pack $ printf "%0.3fs" $ toSec lineTotal
       ]
 
     toSec :: Timestamp -> Double

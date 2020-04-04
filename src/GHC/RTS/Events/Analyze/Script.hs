@@ -23,6 +23,8 @@ module GHC.RTS.Events.Analyze.Script (
 
 import Control.Applicative (optional)
 import Data.List (intercalate)
+import Data.Text (Text)
+import qualified Data.Text as T
 import Language.Haskell.TH.Lift (deriveLiftMany)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax
@@ -44,7 +46,7 @@ import GHC.RTS.Events.Analyze.Types
 type Script a = [Command a]
 
 -- | Title of a section of an event
-type Title = String
+type Title = Text
 
 -- | A positive (Include) or negative (Exclude) filter
 data NameFilter a
@@ -194,13 +196,13 @@ pScript :: Parser (Script String)
 pScript = whiteSpace *> many1 pCommand <* eof
 
 pCommand :: Parser (Command String)
-pCommand = (Section <$> (reserved "section" *> stringLiteral))
+pCommand = (Section . T.pack <$> (reserved "section" *> stringLiteral))
        <|> (One     <$> pEventId                         <*> pTitle)
        <|> (Sum     <$> (reserved "sum" *> pEventFilter) <*> pTitle)
        <|> (All     <$> (reserved "all" *> pEventFilter) <*> pEventSort)
 
 pEventId :: Parser EventId
-pEventId =  (EventUser     <$> stringLiteral <*> pure 0 <?> "user event")
+pEventId =  (EventUser . T.pack <$> stringLiteral <*> pure 0 <?> "user event")
         <|> (EventThread   <$> pThreadId     <?> "thread event")
         <|> (const EventGC <$> reserved "GC")
   where
@@ -220,7 +222,7 @@ pEventSort = optionMaybe $ reserved "by" *> (
                )
 
 pTitle :: Parser (Maybe Title)
-pTitle = optionMaybe (reserved "as" *> stringLiteral)
+pTitle = optionMaybe $ T.pack <$> (reserved "as" *> stringLiteral)
 
 pNameFilter :: Parser (NameFilter String)
 pNameFilter = f <$> optional stringLiteral where
