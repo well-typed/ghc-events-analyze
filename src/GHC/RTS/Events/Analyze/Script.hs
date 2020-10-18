@@ -25,6 +25,7 @@ import Control.Applicative (optional)
 import Data.List (intercalate)
 import Data.Text (Text)
 import qualified Data.Text as T
+import Instances.TH.Lift ()
 import Language.Haskell.TH.Lift (deriveLiftMany)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax
