@@ -1,5 +1,5 @@
 name:                ghc-events-analyze
-version:             0.2.7
+version:             0.2.8
 synopsis:            Analyze and visualize event logs
 description:         ghc-events-analyze is a simple Haskell profiling tool that
                      uses GHC's eventlog system. It helps with some profiling
@@ -69,7 +69,7 @@ executable ghc-events-analyze
                        SVGFonts             >= 1.7   && < 1.8,
                        text                             < 1.3,
                        th-lift              >= 0.6   && < 0.9,
-                       th-lift-instances    == 0.1.*,
+                       th-lift-instances    >= 0.1   && < 0.2,
                        transformers         >= 0.3   && < 0.6,
                        unordered-containers >= 0.2   && < 0.3,
                        -- No version: whatever is bundled with ghc

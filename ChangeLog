@@ -1,3 +1,8 @@
+0.2.8
+
+  * Support for ghc-events-0.13
+    (2020-04-23 Mitsutoshi Aoe <me@maoe.name>)
+
 0.2.7
 
   * Support for GHC 8.8
