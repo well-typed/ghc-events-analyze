@@ -11,6 +11,7 @@ import Diagrams.Prelude (QDiagram, Colour, V2, N, Any, (#), (|||))
 import GHC.RTS.Events (Timestamp)
 import Graphics.SVGFonts.Text (TextOpts(..))
 import Text.Printf (printf)
+import qualified Data.Text as T
 import qualified Diagrams.Prelude           as D
 import qualified Graphics.SVGFonts.Fonts    as F
 import qualified Graphics.SVGFonts.Text     as F
@@ -91,12 +92,12 @@ renderFragment :: Options -> F.PreparedFont Double -> (ReportFragment, Colour Do
 renderFragment options@Options{..} font = go
   where
     go :: (ReportFragment, Colour Double) -> SVGFragment
-    go (ReportSection title,_) = SVGSection (mkSVGText title (optionsBucketHeight + 2) font)
+    go (ReportSection title,_) = SVGSection (mkSVGText (T.unpack title) (optionsBucketHeight + 2) font)
     go (ReportLine line,c)     = uncurry SVGLine $ renderLine options c line
 
 renderLine :: Options -> Colour Double -> ReportLine -> (String, D)
 renderLine options@Options{..} lc line@ReportLineData{..} =
-    ( lineHeader -- renderText lineHeader (optionsBucketHeight + 2)
+    ( T.unpack lineHeader -- renderText lineHeader (optionsBucketHeight + 2)
     , blocks lc <> bgBlocks options lineBackground
     )
   where

@@ -23,6 +23,8 @@ import Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.Text (Text)
+import qualified Data.Text as T
 
 import GHC.RTS.Events (
     Event(..)
@@ -92,13 +94,13 @@ analyze opts@Options{..} log =
     startId :: EventInfo -> Maybe EventId
     startId (RunThread tid)                                   = Just $ EventThread tid
     startId StartGC                                           = Just $ EventGC
-    startId (UserMessage (prefix optionsUserStart -> Just e)) = Just $ parseUserEvent e
+    startId (UserMessage (T.stripPrefix optionsUserStart -> Just e)) = Just $ parseUserEvent e
     startId _                                                 = Nothing
 
     stopId :: EventInfo -> Maybe EventId
     stopId (StopThread tid _)                               = Just $ EventThread tid
     stopId EndGC                                            = Just $ EventGC
-    stopId (UserMessage (prefix optionsUserStop -> Just e)) = Just $ parseUserEvent e
+    stopId (UserMessage (T.stripPrefix optionsUserStop -> Just e)) = Just $ parseUserEvent e
     stopId _                                                = Nothing
 
     nonEmptyTail :: NonEmpty a -> NonEmpty a
@@ -192,12 +194,12 @@ recordWindowStop opts time = do
 -- Record thread creation in current window, and add it to the map of running threads
 recordThreadCreation :: ThreadId -> Timestamp -> State AnalysisState ()
 recordThreadCreation tid start = do
-    let label = show tid
+    let label = showThreadId tid
     cur $ ifInWindow $ recordWindowThreadCreation tid start [label]
     runningThreads . at tid .= Just [label]
 
 -- Record thread creation in current window
-recordWindowThreadCreation :: ThreadId -> Timestamp -> [String] -> State EventAnalysis ()
+recordWindowThreadCreation :: ThreadId -> Timestamp -> [Text] -> State EventAnalysis ()
 recordWindowThreadCreation tid start label =
     windowThreadInfo . at tid .=  Just (start, start, label)
 
@@ -228,7 +230,7 @@ recordRunningThreadFinish stop = do
     threads <- use runningThreads
     mapM_ (\tid -> cur $ recordWindowThreadFinish tid stop) $ threadIds threads
 
-labelThread :: ThreadId -> String -> State AnalysisState ()
+labelThread :: ThreadId -> Text -> State AnalysisState ()
 labelThread tid !l = do
     runningThreads . at tid %= fmap (l :)
     cur $ windowThreadInfo . at tid %= fmap updThreadInfo

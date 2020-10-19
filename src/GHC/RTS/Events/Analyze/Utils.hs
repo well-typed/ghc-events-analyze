@@ -1,20 +1,24 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GHC.RTS.Events.Analyze.Utils (
     throwLeft
   , throwLeftStr
   , insertWith
-  , prefix
   , explode
   , mapEithers
   , unsparse
   , Alignment(..)
   , renderTable
+  , showThreadId
   ) where
 
 import Control.Lens
 import Control.Exception
 import Data.List (transpose)
 import Data.Either (partitionEithers)
+import Data.Text (Text)
+import qualified Data.Text as T
+import GHC.RTS.Events (ThreadId)
 
 throwLeft :: Exception e => IO (Either e a) -> IO a
 throwLeft act = act >>= \ea -> case ea of Left  e -> throwIO e
@@ -45,16 +49,6 @@ explode needle = go
               (before, [])        -> [before]
               (before, _ : after) -> before : go after
 
--- | Check if a string has a given prefix
---
--- > prefix "abc" "abcdef" == Just "def"
--- > prefix "abc" "defabc" == Nothing
-prefix :: String -> String -> Maybe String
-prefix []     ys                 = Just ys
-prefix _      []                 = Nothing
-prefix (x:xs) (y:ys) | x == y    = prefix xs ys
-                     | otherwise = Nothing
-
 mapEithers :: forall a b c d.
               ([a] -> [c])
            -> ([b] -> [d])
@@ -84,24 +78,27 @@ unsparse blank = go 0 . itoList
 data Alignment = AlignLeft | AlignRight
 
 -- | "Typeset" a table
-renderTable :: [Alignment] -> [[String]] -> [[String]]
+renderTable :: [Alignment] -> [[Text]] -> [[Text]]
 renderTable aligns rows = transpose paddedColumns
   where
-    columns :: [[String]]
+    columns :: [[Text]]
     columns = transpose rows
 
     columnWidths :: [Int]
-    columnWidths = map (maximum . map length) columns
+    columnWidths = map (maximum . map T.length) columns
 
-    paddedColumns :: [[String]]
+    paddedColumns :: [[Text]]
     paddedColumns = map padColumn (zip3 aligns columnWidths columns)
 
-    padColumn :: (Alignment, Int, [String]) -> [String]
+    padColumn :: (Alignment, Int, [Text]) -> [Text]
     padColumn (align, width, column) = map (padCell align width) column
 
-    padCell :: Alignment -> Int -> String -> String
+    padCell :: Alignment -> Int -> Text -> Text
     padCell align width cell =
-      let padding = replicate (width - length cell) ' '
+      let padding = T.replicate (width - T.length cell) " "
       in case align of
-           AlignLeft  -> cell ++ padding
-           AlignRight -> padding ++ cell
+           AlignLeft  -> cell <> padding
+           AlignRight -> padding <> cell
+
+showThreadId :: ThreadId -> Text
+showThreadId = T.pack . show
