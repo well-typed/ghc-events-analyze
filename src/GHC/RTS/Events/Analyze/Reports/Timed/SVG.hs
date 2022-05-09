@@ -5,7 +5,6 @@ module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
   ) where
 import Control.Lens (itoList)
 import Data.List (foldl')
-import Data.Monoid ((<>))
 import Diagrams.Backend.SVG (B, renderSVG)
 import Diagrams.Prelude (QDiagram, Colour, V2, N, Any, (#), (|||))
 import GHC.RTS.Events (Timestamp)
@@ -96,7 +95,7 @@ renderFragment options@Options{..} font = go
     go (ReportLine line,c)     = uncurry SVGLine $ renderLine options c line
 
 renderLine :: Options -> Colour Double -> ReportLine -> (String, D)
-renderLine options@Options{..} lc line@ReportLineData{..} =
+renderLine options lc line@ReportLineData{..} =
     ( T.unpack lineHeader -- renderText lineHeader (optionsBucketHeight + 2)
     , blocks lc <> bgBlocks options lineBackground
     )

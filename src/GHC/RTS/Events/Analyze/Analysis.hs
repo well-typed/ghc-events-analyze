@@ -5,6 +5,7 @@ module GHC.RTS.Events.Analyze.Analysis (
     -- * Basic analysis
   , events
   , analyze
+  , AnalysisOptions(..)
     -- * Using EventAnalysis
   , eventTotal
   , compareEventIds
@@ -56,8 +57,8 @@ readEventLog  = throwLeftStr . Events.readEventLogFromFile
   the analysis combines such events.
 -------------------------------------------------------------------------------}
 
-analyze :: Options -> EventLog -> NonEmpty EventAnalysis
-analyze opts@Options{..} log =
+analyze :: AnalysisOptions -> EventLog -> NonEmpty EventAnalysis
+analyze opts@AnalysisOptions{..} log =
     let AnalysisState _ analyses = execState (mapM_ analyzeEvent (sortedEvents log))
                                              (initialAnalysisState opts)
     in NonEmpty.reverse $ do
@@ -183,7 +184,7 @@ recordWindowStart time = do
   -- were running before window was entered
   recordRunningThreadCreation time
 
-recordWindowStop :: Options -> Timestamp -> State AnalysisState ()
+recordWindowStop :: AnalysisOptions -> Timestamp -> State AnalysisState ()
 recordWindowStop opts time = do
   cur $ do
     inWindow .= False
@@ -241,13 +242,13 @@ finishThread :: EventInfo -> Maybe ThreadId
 finishThread (StopThread tid ThreadFinished) = Just tid
 finishThread _                               = Nothing
 
-initialAnalysisState :: Options -> AnalysisState
+initialAnalysisState :: AnalysisOptions -> AnalysisState
 initialAnalysisState opts = AnalysisState {
     _runningThreads = Map.empty
   , _windowAnalyses = initialEventAnalysis opts :| []
   }
 
-initialEventAnalysis :: Options -> EventAnalysis
+initialEventAnalysis :: AnalysisOptions -> EventAnalysis
 initialEventAnalysis opts = EventAnalysis {
     _events           = []
   , _windowThreadInfo = Map.empty

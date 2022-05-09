@@ -21,6 +21,29 @@ parseOptions = customExecParser (prefs showHelpOnError) opts
       , footer "If no output is selected, generates SVG and totals."
       ]
 
+parseAnalysisOptions :: Parser AnalysisOptions
+parseAnalysisOptions =
+  AnalysisOptions
+  <$> (optional . option (parseUserEvent <$> str) $ mconcat [
+          long "window"
+        , metavar "NAME"
+        , help "Events named NAME act to mark bounds of visualization window."
+        ])
+  <*> (strOption $ mconcat [
+          long "start"
+        , metavar "STR"
+        , help "Use STR as the prefix for the start of user events"
+        , showDefault
+        , value "START "
+        ])
+  <*> (strOption $ mconcat [
+          long "stop"
+        , metavar "STR"
+        , help "Use STR as the prefix for the end of user events"
+        , showDefault
+        , value "STOP "
+        ])
+
 parserOptions :: Parser Options
 parserOptions =
         (infoOption scriptHelp $ mconcat [
@@ -40,11 +63,6 @@ parserOptions =
               long "totals"
             , help "Generate totals report"
             ])
-      <*> (optional . option (parseUserEvent <$> str) $ mconcat [
-              long "window"
-            , metavar "NAME"
-            , help "Events named NAME act to mark bounds of visualization window."
-            ])
       <*> (option auto $ mconcat [
               long "buckets"
             , short 'b'
@@ -53,20 +71,7 @@ parserOptions =
             , showDefault
             , value 1000
             ])
-      <*> (strOption $ mconcat [
-              long "start"
-            , metavar "STR"
-            , help "Use STR as the prefix for the start of user events"
-            , showDefault
-            , value "START "
-            ])
-      <*> (strOption $ mconcat [
-              long "stop"
-            , metavar "STR"
-            , help "Use STR as the prefix for the end of user events"
-            , showDefault
-            , value "STOP "
-            ])
+      <*> parseAnalysisOptions
       <*> (strOption $ mconcat [
               long "script-totals"
             , metavar "PATH"

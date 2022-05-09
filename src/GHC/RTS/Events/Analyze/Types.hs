@@ -13,6 +13,7 @@ module GHC.RTS.Events.Analyze.Types (
   , parseUserEvent
   , showEventId
     -- * Options
+  , AnalysisOptions(..)
   , TimelineGranularity(..)
   , Options(..)
     -- * Analysis state
@@ -128,15 +129,21 @@ showEventId info (EventThread tid)   = case info ^. at tid of
 data TimelineGranularity = TimelineSeconds | TimelineMilliseconds
   deriving Show
 
+-- | Options related to the analysis
+data AnalysisOptions = AnalysisOptions {
+    optionsWindowEvent        :: Maybe EventId
+  , optionsUserStart          :: Text
+  , optionsUserStop           :: Text
+  }
+  deriving Show
+
 -- | Command line options
 data Options = Options {
     optionsGenerateTimedSVG   :: Bool
   , optionsGenerateTimedText  :: Bool
   , optionsGenerateTotalsText :: Bool
-  , optionsWindowEvent        :: Maybe EventId
   , optionsNumBuckets         :: Int
-  , optionsUserStart          :: Text
-  , optionsUserStop           :: Text
+  , optionsAnalysis           :: AnalysisOptions
   , optionsScriptTotals       :: FilePath  -- "" denotes the standard script
   , optionsScriptTimed        :: FilePath
   , optionsGranularity        :: TimelineGranularity
