@@ -1,12 +1,13 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
+
 module GHC.RTS.Events.Analyze.Types (
     -- * Events
     EventId(..)
   , EventLabel
+  , EventSort(..)
   , EventSubscript
   , isUserEvent
   , isThreadEvent
@@ -121,6 +122,26 @@ showEventId _    (EventUser event _) = event
 showEventId info (EventThread tid)   = case info ^. at tid of
                                          Just (_, _, l) -> l
                                          Nothing        -> showThreadId tid
+
+-- | Sorting
+data EventSort =
+    -- | Sort by event name
+    --
+    -- Example
+    -- > thread by name
+    SortByName
+
+    -- | Sort by total
+    --
+    -- Example
+    -- > user by name
+  | SortByTotal
+    -- | Sort by start time
+    --
+    -- Example
+    -- > user by start
+  | SortByStart
+  deriving Show
 
 {-------------------------------------------------------------------------------
   Options

@@ -93,27 +93,6 @@ data EventFilter a =
   | Any [EventFilter a]
   deriving (Functor, Foldable, Traversable, Show)
 
-
--- | Sorting
-data EventSort =
-    -- | Sort by event name
-    --
-    -- Example
-    -- > thread by name
-    SortByName
-
-    -- | Sort by total
-    --
-    -- Example
-    -- > user by name
-  | SortByTotal
-    -- | Sort by start time
-    --
-    -- Example
-    -- > user by start
-  | SortByStart
-  deriving Show
-
 -- | Commands
 data Command a =
     -- | Start a new section

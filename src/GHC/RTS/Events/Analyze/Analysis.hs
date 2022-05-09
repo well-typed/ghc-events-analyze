@@ -39,7 +39,6 @@ import qualified GHC.RTS.Events as Events
 import GHC.RTS.Events.Analyze.Utils
 import GHC.RTS.Events.Analyze.StrictState (State, execState, put, get, runState)
 import GHC.RTS.Events.Analyze.Types
-import GHC.RTS.Events.Analyze.Script
 
 {-------------------------------------------------------------------------------
   Auxiliary

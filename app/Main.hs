@@ -17,7 +17,7 @@ import GHC.RTS.Events.Analyze.Script.Standard
 main :: IO ()
 main = do
     options@Options{..} <- parseOptions
-    analyses            <- analyze options <$> readEventLog optionsInput
+    analyses            <- analyze optionsAnalysis <$> readEventLog optionsInput
 
     (timedScriptName,  timedScript)  <- getScript optionsScriptTimed  defaultScriptTimed
     (totalsScriptName, totalsScript) <- getScript optionsScriptTotals defaultScriptTotals
@@ -37,8 +37,8 @@ main = do
 
         prefixAnalysisNumber :: Int -> String -> String
         prefixAnalysisNumber i filename
-          | isNothing optionsWindowEvent = filename
-          | otherwise                    = show i ++ "." ++ filename
+          | isNothing (optionsWindowEvent optionsAnalysis) = filename
+          | otherwise                                      = show i ++ "." ++ filename
 
     forM_ (zip [0..] (NonEmpty.toList analyses)) $ \ (i,analysis) -> do
 
