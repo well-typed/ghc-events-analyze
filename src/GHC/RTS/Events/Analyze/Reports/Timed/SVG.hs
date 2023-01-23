@@ -1,8 +1,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE CPP #-}
+
 module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
     writeReport
   ) where
+
 import Control.Lens (itoList)
 import Data.List (foldl')
 import Data.Monoid ((<>))
@@ -11,6 +13,7 @@ import Diagrams.Prelude (QDiagram, Colour, V2, N, Any, (#), (|||))
 import GHC.RTS.Events (Timestamp)
 import Graphics.SVGFonts.Text (TextOpts(..))
 import Text.Printf (printf)
+
 import qualified Data.Text as T
 import qualified Diagrams.Prelude           as D
 import qualified Graphics.SVGFonts.Fonts    as F
@@ -96,7 +99,7 @@ renderFragment options@Options{..} font = go
     go (ReportLine line,c)     = uncurry SVGLine $ renderLine options c line
 
 renderLine :: Options -> Colour Double -> ReportLine -> (String, D)
-renderLine options@Options{..} lc line@ReportLineData{..} =
+renderLine options lc line@ReportLineData{..} =
     ( T.unpack lineHeader -- renderText lineHeader (optionsBucketHeight + 2)
     , blocks lc <> bgBlocks options lineBackground
     )
