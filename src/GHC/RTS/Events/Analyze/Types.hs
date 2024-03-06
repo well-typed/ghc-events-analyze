@@ -106,7 +106,7 @@ isThreadEvent _                 = Nothing
 -- If the event name starts with a digit, regard it as a 'EventSubscript'.
 parseUserEvent :: Text -> EventId
 parseUserEvent s =
-    case TR.decimal s of
+    case TR.signed TR.decimal s of
       Left _ -> EventUser s 0
       Right (eid, cs) -> EventUser (T.dropWhile isSpace cs) eid
 
