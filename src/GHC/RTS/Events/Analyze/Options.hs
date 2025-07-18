@@ -5,7 +5,6 @@ module GHC.RTS.Events.Analyze.Options (
   , parseOptions
   ) where
 
-import Data.Foldable (asum)
 import Options.Applicative
 
 import GHC.RTS.Events.Analyze.Types

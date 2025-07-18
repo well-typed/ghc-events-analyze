@@ -7,12 +7,12 @@ module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
 
 import Control.Lens (itoList)
 import Data.List (foldl')
-import Data.Monoid ((<>))
 import Diagrams.Backend.SVG (B, renderSVG)
 import Diagrams.Prelude (QDiagram, Colour, V2, N, Any, (#), (|||))
 import GHC.RTS.Events (Timestamp)
 import Graphics.SVGFonts.Text (TextOpts(..))
 import Text.Printf (printf)
+import Graphics.SVGFonts (fit_height, set_envelope)
 
 import qualified Data.Text as T
 import qualified Diagrams.Prelude           as D
@@ -134,20 +134,16 @@ bgBlocks options = go
 -- memory hungry in comparison to something simple like 'TT.text'.
 -- This function should therefore be used as little as possible.
 mkSVGText :: String -> Double -> F.PreparedFont Double -> D
-mkSVGText str size font =
-  D.stroke textSVG # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
+mkSVGText str size font = textSVG # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
   where
-    textSVG = F.textSVG' (textOpts size font) str
+    textSVG = F.svgText (textOpts font) str # fit_height size # set_envelope
 
-textOpts :: Double -> F.PreparedFont Double -> TextOpts Double
-textOpts size font =
+textOpts :: F.PreparedFont Double -> TextOpts Double
+textOpts font =
     TextOpts {
         textFont   = font
-      , mode       = F.INSIDE_H
       , spacing    = F.KERN
       , underline  = False
-      , textWidth  = 0 -- not important
-      , textHeight = size
       }
 
 -- | Render text with diagram's own engine. The issue with this text
