@@ -1,5 +1,4 @@
 -- | State monad which forces the state to whnf on every step
-{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving, CPP #-}
 module GHC.RTS.Events.Analyze.StrictState (
     -- * Transformer
     StateT
@@ -16,18 +15,18 @@ module GHC.RTS.Events.Analyze.StrictState (
   , module Control.Monad.State.Strict
   ) where
 
+import Control.Monad.Identity (Identity(..))
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State.Strict (MonadState(..))
-import qualified Control.Monad.State.Strict as St
+import Control.Monad.State.Strict qualified as St
 import Control.Monad.Trans.Class (MonadTrans)
-import Control.Monad.Identity (Identity(..))
 
 {-------------------------------------------------------------------------------
   Transformer
 -------------------------------------------------------------------------------}
 
 newtype StateT s m a = StateT { unStateT :: St.StateT s m a  }
-  deriving (Functor, Applicative, Monad, MonadTrans, MonadIO)
+  deriving newtype (Functor, Applicative, Monad, MonadTrans, MonadIO)
 
 runStateT :: StateT s m a -> s -> m (a, s)
 runStateT = St.runStateT . unStateT

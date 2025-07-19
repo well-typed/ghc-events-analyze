@@ -1,0 +1,5 @@
+packages: .
+
+package ghc-events-analyze
+  tests: true
+  ghc-options: -Werror

@@ -11,8 +11,8 @@ import Control.Lens hiding (filtered)
 import Data.Function (on)
 import Data.List (sortBy, group)
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import Data.Text qualified as T
+import Data.Text.IO qualified as T
 import GHC.RTS.Events (Timestamp)
 import System.IO (Handle, withFile, IOMode(WriteMode))
 import Text.Printf (printf)

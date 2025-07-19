@@ -1,17 +1,16 @@
-{-# LANGUAGE CPP #-}
 module Main where
 
 import Control.Monad (when, forM_)
-import qualified Data.List.NonEmpty as NonEmpty
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Maybe (isNothing)
 import System.FilePath (replaceExtension, takeFileName)
 import Text.Parsec.String (parseFromFile)
 
 import GHC.RTS.Events.Analyze.Analysis
 import GHC.RTS.Events.Analyze.Options
-import qualified GHC.RTS.Events.Analyze.Reports.Totals    as Totals
-import qualified GHC.RTS.Events.Analyze.Reports.Timed     as Timed
-import qualified GHC.RTS.Events.Analyze.Reports.Timed.SVG as TimedSVG
+import GHC.RTS.Events.Analyze.Reports.Timed     qualified as Timed
+import GHC.RTS.Events.Analyze.Reports.Timed.SVG qualified as TimedSVG
+import GHC.RTS.Events.Analyze.Reports.Totals    qualified as Totals
 import GHC.RTS.Events.Analyze.Script
 import GHC.RTS.Events.Analyze.Script.Standard
 

@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 module GHC.RTS.Events.Analyze.Utils (
     throwLeft
@@ -12,12 +11,12 @@ module GHC.RTS.Events.Analyze.Utils (
   , showThreadId
   ) where
 
-import Control.Lens
 import Control.Exception
-import Data.List (transpose)
+import Control.Lens
 import Data.Either (partitionEithers)
+import Data.List (transpose)
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import GHC.RTS.Events (ThreadId)
 
 throwLeft :: Exception e => IO (Either e a) -> IO a

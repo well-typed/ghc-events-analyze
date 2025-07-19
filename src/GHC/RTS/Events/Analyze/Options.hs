@@ -1,5 +1,5 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module GHC.RTS.Events.Analyze.Options (
     Options(..)
   , parseOptions

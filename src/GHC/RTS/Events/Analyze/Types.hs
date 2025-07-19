@@ -1,8 +1,6 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TemplateHaskell #-}
+
 module GHC.RTS.Events.Analyze.Types (
     -- * Events
     EventId(..)
@@ -45,8 +43,8 @@ import Data.HashMap.Strict (HashMap)
 import Data.IntMap.Strict (IntMap)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.Read as TR
+import Data.Text qualified as T
+import Data.Text.Read qualified as TR
 import GHC.Generics
 import GHC.RTS.Events (Timestamp, ThreadId)
 import Text.Regex.PCRE
