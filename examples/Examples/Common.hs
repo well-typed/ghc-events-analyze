@@ -1,5 +1,10 @@
+module Examples.Common (
+    fib
+  , printFib
+  , blips
+  ) where
+
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.Async (async, wait)
 
 -- Intentionally slow fib
 fib :: Integer -> Integer
@@ -16,10 +21,3 @@ blips = do
   threadDelay 5000000
   putStrLn "BLIP"
 
-main :: IO ()
-main = do
-  a1 <- async $ mapM_ printFib [30, 32 .. 38]
-  a2 <- async $ mapM_ printFib [31, 33 .. 39]
-  threadDelay 5000000
-  a3 <- async $ blips
-  mapM_ wait [a1, a2, a3]

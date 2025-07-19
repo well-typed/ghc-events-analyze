@@ -1,10 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# OPTIONS_GHC -w -W #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE CPP #-}
+
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module GHC.RTS.Events.Analyze.Script (
     -- * Types
     Script
@@ -24,18 +21,14 @@ module GHC.RTS.Events.Analyze.Script (
 import Control.Applicative (optional)
 import Data.List (intercalate)
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Instances.TH.Lift ()
 import Language.Haskell.TH.Lift (deriveLiftMany)
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax
 import Text.Parsec hiding (optional)
 import Text.Parsec.Language (haskellDef)
-import qualified Text.Parsec.Token as P
-
-#if !MIN_VERSION_base(4,13,0)
-import Control.Monad.Fail (MonadFail)
-#endif
+import Text.Parsec.Token qualified as P
 
 import GHC.RTS.Events.Analyze.Types
 
@@ -175,12 +168,23 @@ lexer = P.makeTokenParser haskellDef {
               ]
            }
 
-reserved      = P.reserved      lexer
+reserved :: String -> Parser ()
+reserved = P.reserved lexer
+
+stringLiteral :: Parser String
 stringLiteral = P.stringLiteral lexer
-natural       = P.natural       lexer
-squares       = P.squares       lexer
-commaSep1     = P.commaSep1     lexer
-whiteSpace    = P.whiteSpace    lexer
+
+natural :: Parser Integer
+natural = P.natural lexer
+
+squares :: Parser a -> Parser a
+squares = P.squares lexer
+
+commaSep1 :: Parser a -> Parser [a]
+commaSep1 = P.commaSep1 lexer
+
+whiteSpace :: Parser ()
+whiteSpace = P.whiteSpace lexer
 
 {-------------------------------------------------------------------------------
   Syntax analysis

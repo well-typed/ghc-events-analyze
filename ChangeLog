@@ -1,3 +1,9 @@
+0.2.9
+
+  * Support `ghc-9.6.5` and `SVGFonts-1.8`
+    (2025-07-19 Vladimir Ovechkin <vovechkin@anduril.com>)
+  * Drop support for `ghc < 9.2`, general cleanup.
+
 0.2.8
 
   * Support for ghc-events-0.13

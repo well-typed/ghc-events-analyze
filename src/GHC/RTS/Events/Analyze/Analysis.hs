@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts, CPP #-}
 module GHC.RTS.Events.Analyze.Analysis (
     -- * Auxiliary
     readEventLog
@@ -12,19 +11,19 @@ module GHC.RTS.Events.Analyze.Analysis (
   , quantize
   ) where
 
-import Prelude hiding (log)
 import Control.Applicative ((<|>))
 import Control.Lens
 import Control.Monad (forM_, when, void)
-import Data.Maybe (fromMaybe, isNothing)
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as Map
+import Data.HashMap.Strict qualified as Map
 import Data.IntMap.Strict (IntMap)
-import qualified Data.IntMap.Strict as IntMap
+import Data.IntMap.Strict qualified as IntMap
 import Data.List.NonEmpty (NonEmpty(..))
-import qualified Data.List.NonEmpty as NonEmpty
+import Data.List.NonEmpty qualified as NonEmpty
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Text (Text)
-import qualified Data.Text as T
+import Data.Text qualified as T
+import Prelude hiding (log)
 
 import GHC.RTS.Events (
     Event(..)
@@ -33,7 +32,7 @@ import GHC.RTS.Events (
   , ThreadStopStatus(..)
   , Timestamp
   )
-import qualified GHC.RTS.Events as Events
+import GHC.RTS.Events qualified as Events
 
 import GHC.RTS.Events.Analyze.Utils
 import GHC.RTS.Events.Analyze.StrictState (State, execState, put, get, runState)

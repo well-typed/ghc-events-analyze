@@ -1,4 +1,2 @@
-dist/
 dist-newstyle/
-tags
-cabal.project
+.envrc

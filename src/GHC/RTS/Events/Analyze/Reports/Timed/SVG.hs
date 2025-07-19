@@ -1,25 +1,22 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE CPP #-}
-
 module GHC.RTS.Events.Analyze.Reports.Timed.SVG (
     writeReport
   ) where
 
 import Control.Lens (itoList)
-import Data.List (foldl')
-import Data.Monoid ((<>))
+import Data.List qualified as List
+import Data.Text qualified as T
 import Diagrams.Backend.SVG (B, renderSVG)
 import Diagrams.Prelude (QDiagram, Colour, V2, N, Any, (#), (|||))
 import GHC.RTS.Events (Timestamp)
+import Graphics.SVGFonts (fit_height, set_envelope)
 import Graphics.SVGFonts.Text (TextOpts(..))
 import Text.Printf (printf)
 
-import qualified Data.Text as T
-import qualified Diagrams.Prelude           as D
-import qualified Graphics.SVGFonts.Fonts    as F
-import qualified Graphics.SVGFonts.Text     as F
-import qualified Graphics.SVGFonts.ReadFont as F
-import qualified Diagrams.TwoD.Text as TT
+import Diagrams.Prelude           qualified as D
+import Diagrams.TwoD.Text         qualified as TT
+import Graphics.SVGFonts.Fonts    qualified as F
+import Graphics.SVGFonts.ReadFont qualified as F
+import Graphics.SVGFonts.Text     qualified as F
 
 import GHC.RTS.Events.Analyze.Types
 import GHC.RTS.Events.Analyze.Reports.Timed hiding (writeReport)
@@ -81,9 +78,11 @@ renderReport options@Options{..}
     widestHeader :: Double
     widestHeader =
       let headers = [ (header, length header) | SVGLine header _ <- fragments ]
-          (maxHeader, _) = foldl' (\(s, l) (s', l') ->
-                                     if l' > l then (s', l') else (s, l))
-                                  ("", 0) headers
+          (maxHeader, _) =
+            List.foldl'
+              (\(s, l) (s', l') -> if l' > l then (s', l') else (s, l))
+              ("", 0)
+              headers
       in D.width $! mkSVGText maxHeader (optionsBucketHeight + 2) font
 
 data SVGFragment =
@@ -134,20 +133,16 @@ bgBlocks options = go
 -- memory hungry in comparison to something simple like 'TT.text'.
 -- This function should therefore be used as little as possible.
 mkSVGText :: String -> Double -> F.PreparedFont Double -> D
-mkSVGText str size font =
-  D.stroke textSVG # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
+mkSVGText str size font = textSVG # D.fc D.black # D.lc D.black # D.alignL # D.lw D.none
   where
-    textSVG = F.textSVG' (textOpts size font) str
+    textSVG = F.svgText (textOpts font) str # fit_height size # set_envelope
 
-textOpts :: Double -> F.PreparedFont Double -> TextOpts Double
-textOpts size font =
+textOpts :: F.PreparedFont Double -> TextOpts Double
+textOpts font =
     TextOpts {
         textFont   = font
-      , mode       = F.INSIDE_H
       , spacing    = F.KERN
       , underline  = False
-      , textWidth  = 0 -- not important
-      , textHeight = size
       }
 
 -- | Render text with diagram's own engine. The issue with this text
@@ -190,8 +185,8 @@ timeline Options{..} numBuckets bucketSize font =
 
    -- memoize the rendering of the last time label: if it's the same
    -- for the next 10 displays, why render it 10 times? Text is expensive.
-   in case foldl' (\acc tb -> timelineBlock acc tb) mempty timeBlocks of
-     (_, _, fullDiag) -> fullDiag
+   in case List.foldl' (\acc tb -> timelineBlock acc tb) mempty timeBlocks of
+        (_, _, fullDiag) -> fullDiag
 
   where
     timelineBlockWidth :: Double

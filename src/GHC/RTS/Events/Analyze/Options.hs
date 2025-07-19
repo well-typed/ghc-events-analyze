@@ -1,11 +1,10 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module GHC.RTS.Events.Analyze.Options (
     Options(..)
   , parseOptions
   ) where
 
-import Data.Foldable (asum)
 import Options.Applicative
 
 import GHC.RTS.Events.Analyze.Types

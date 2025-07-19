@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 module GHC.RTS.Events.Analyze.Reports.Timed (
     Report
@@ -10,15 +9,15 @@ module GHC.RTS.Events.Analyze.Reports.Timed (
 
 import Control.Lens (itoList, (^.), over, each, _3)
 import Data.Function (on)
-import Data.List (group, sortBy)
+import Data.HashMap.Strict qualified as Map
 import Data.IntMap.Strict (IntMap)
+import Data.IntMap.Strict qualified as IntMap
+import Data.List (group, sortBy)
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import Data.Text qualified as T
+import Data.Text.IO qualified as T
 import System.IO (Handle, withFile, IOMode(WriteMode))
 import Text.Printf (printf)
-import qualified Data.HashMap.Strict as Map
-import qualified Data.IntMap.Strict as IntMap
 
 import GHC.RTS.Events.Analyze.Analysis
 import GHC.RTS.Events.Analyze.Script
