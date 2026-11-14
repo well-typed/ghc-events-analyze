@@ -6,6 +6,12 @@ ghc-events-analyze](http://www.well-typed.com/blog/2014/02/ghc-events-analyze/)
 for an introduction to this tool. Below we describe some features that were
 introduced since the blog post.
 
+> [!WARNING]
+> This tool is no longer being maintained. Use of the tool as well as feedback
+> is welcome, but Well-Typed cannot guarantee any level of unpaid maintenance or
+> support. Please contact us via email to info@well-typed.com if you are
+> interested in commercial support or funding development of the tool.
+
 ## Controlling layout
 
 As of version 0.2.3, there are a number of options for controlling the layout.
